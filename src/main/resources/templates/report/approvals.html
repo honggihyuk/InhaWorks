@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>결재함</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치">
+    <span sec:authorize="hasRole('ADMIN')">관리자</span><span sec:authorize="!hasRole('ADMIN')">우리 회사</span><span class="sep">›</span><b>결재함</b>
+</nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">결재함</h1>
+            <p class="page-sub" th:text="|내 차례 ${#lists.size(inbox)}건 · 고르면 옆에서 내용을 보고 바로 승인·반려해요|">내 차례</p>
+        </div>
+        <div class="actions"><a th:href="@{/report}" class="btn">보고서</a></div>
+    </div>
+
+    <div class="split left-list" data-md>
+        <div class="stack">
+            <section class="card" aria-labelledby="inbox-title">
+                <div class="card-head"><h2 id="inbox-title">내 차례</h2><span class="badge" th:text="${#lists.size(inbox)}">1</span></div>
+                <div th:if="${#lists.isEmpty(inbox)}" class="empty-sm">결재할 보고서가 없어요.</div>
+                <div class="list">
+                    <a th:each="ap : ${inbox}" class="list-item selectable" data-md-item th:href="@{|/report/${ap.report.id}|}">
+                        <span th:replace="~{fragments/ui :: avatar(${ap.report.author}, 'sm')}"></span>
+                        <span class="body">
+                            <b th:text="${ap.report.form.title}">주간 업무 보고</b>
+                            <small th:text="|${ap.report.author.displayName} · ${ap.step}/${ap.report.approvals.size()}단계 · ${#temporals.format(ap.report.submittedAt, 'M.d HH:mm')}|">이서연</small>
+                        </span>
+                        <span th:replace="~{fragments/ui :: chip(${ap.report.status.name()}, ${ap.report.status.label})}"></span>
+                    </a>
+                </div>
+            </section>
+            <section class="card" aria-labelledby="done-title">
+                <div class="card-head"><h2 id="done-title">내가 처리한 결재</h2></div>
+                <div th:if="${#lists.isEmpty(decided)}" class="empty-sm">아직 없어요.</div>
+                <div class="list">
+                    <a th:each="ap : ${decided}" class="list-item selectable" data-md-item th:href="@{|/report/${ap.report.id}|}">
+                        <span class="body">
+                            <b th:text="${ap.report.form.title}">주간 업무 보고</b>
+                            <small th:text="|${ap.report.author.displayName} · ${ap.step}단계 · ${#temporals.format(ap.decidedAt, 'M.d HH:mm')}|">이서연</small>
+                        </span>
+                        <span th:replace="~{fragments/ui :: chip(${ap.decision.name()}, ${ap.decision.label})}"></span>
+                    </a>
+                </div>
+            </section>
+        </div>
+        <div data-md-pane aria-live="polite">
+            <div class="card empty"><b>보고서를 고르세요</b><span>왼쪽 목록에서 고르면 여기에 내용과 댓글이 보여요</span></div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

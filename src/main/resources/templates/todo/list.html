@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>오늘 할 일</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><b>할 일</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <div class="eyebrow" th:text="${#temporals.format(date, 'yyyy년 M월 d일 (E)')}">2026년 11월 19일 (목)</div>
+            <h1 class="page-title" th:text="${date == today} ? '오늘 할 일' : '할 일'">오늘 할 일</h1>
+        </div>
+        <div class="actions">
+            <a th:href="@{/todo/review}" class="btn soft" th:if="${reviewWaiting > 0}">검수 대기 <span class="badge" th:text="${reviewWaiting}">2</span></a>
+            <a th:href="@{/todo(date=${date.minusDays(1)})}" class="btn" aria-label="전날">‹ 전날</a>
+            <a th:href="@{/todo}" class="btn" th:unless="${date == today}">오늘</a>
+            <a th:href="@{/todo(date=${date.plusDays(1)})}" class="btn" aria-label="다음날">다음날 ›</a>
+        </div>
+    </div>
+
+    <!-- 왼쪽 목록 / 오른쪽 작성 폼 (넓은 화면에서 옆에 불러온다) -->
+    <div class="split left-list" data-md>
+        <div class="stack">
+            <section class="card" aria-labelledby="mine-title">
+                <div class="card-head"><h2 id="mine-title">배정된 할 일</h2><span class="meta" th:text="|${#lists.size(assignments)}건|">3건</span></div>
+                <div th:if="${#lists.isEmpty(assignments)}" class="empty-sm">이 날짜에 배정된 할 일이 없어요. 관리자가 만든 반복 할 일이 매일 새벽 자동으로 배정돼요.</div>
+                <div class="list">
+                    <a th:each="a : ${assignments}" class="list-item selectable" data-md-item th:href="@{|/todo/${a.id}|}">
+                        <span class="body">
+                            <b th:text="${a.task.title}">매장 오픈 체크리스트</b>
+                            <small th:text="|${a.task.cycleText} · 항목 ${#lists.size(a.task.activeItems)}개${a.task.reviewer != null ? ' · 검수 ' + a.task.reviewer.displayName : ''}|">매일 · 항목 6개</small>
+                        </span>
+                        <span th:replace="~{fragments/ui :: chip(${a.status.name()}, ${a.status.label})}"></span>
+                    </a>
+                </div>
+            </section>
+            <section class="card" th:unless="${#lists.isEmpty(overdue)}" aria-labelledby="overdue-title">
+                <div class="card-head"><h2 id="overdue-title">지난 날짜 미완료 · 재작업</h2></div>
+                <div class="list">
+                    <a th:each="a : ${overdue}" class="list-item selectable" data-md-item th:href="@{|/todo/${a.id}|}">
+                        <span class="body">
+                            <b th:text="${a.task.title}">매장 오픈 체크리스트</b>
+                            <small th:text="${#temporals.format(a.workDate, 'M월 d일 (E)')}">11월 18일</small>
+                        </span>
+                        <span th:replace="~{fragments/ui :: chip(${a.status.name()}, ${a.status.label})}"></span>
+                    </a>
+                </div>
+            </section>
+        </div>
+        <div data-md-pane aria-live="polite">
+            <div class="card empty"><b>할 일을 고르세요</b><span>왼쪽에서 고르면 여기에서 바로 작성하고 제출할 수 있어요</span></div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

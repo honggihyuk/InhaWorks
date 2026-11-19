@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>할 일</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>할 일</b></nav>
+
+<main layout:fragment="content" class="content" th:with="today=${#temporals.createToday()}">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">할 일</h1>
+            <p class="page-sub">반복 할 일을 만들고, 오늘 진행률과 직원별 현황을 봐요</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{/todo/review}" class="btn soft">검수 대기함
+                <span class="badge" th:if="${navReviewWaiting != null and navReviewWaiting > 0}" th:text="${navReviewWaiting}">2</span></a>
+            <a th:href="@{/admin/todo/new}" class="btn primary">+ 할 일 만들기</a>
+        </div>
+    </div>
+
+    <div class="segmented" role="tablist" data-filter-tabs="todo-rows" aria-label="상태로 거르기">
+        <button type="button" class="active" role="tab" aria-selected="true" data-filter="all">전체</button>
+        <button type="button" role="tab" aria-selected="false" data-filter="running">진행 중</button>
+        <button type="button" role="tab" aria-selected="false" data-filter="paused">일시중지</button>
+        <button type="button" role="tab" aria-selected="false" data-filter="ended">종료</button>
+    </div>
+
+    <section class="card flush">
+        <div th:if="${#lists.isEmpty(summaries)}" class="empty"><b>아직 만든 할 일이 없어요</b><span>‘할 일 만들기’로 첫 반복 업무를 등록하세요</span></div>
+        <div class="empty" data-filter-empty="todo-rows" hidden><b>이 상태의 할 일이 없어요</b></div>
+        <div class="table-box" th:unless="${#lists.isEmpty(summaries)}">
+            <table class="t">
+                <thead><tr><th>할 일</th><th>상태</th><th style="min-width:190px">오늘 진행률</th><th>배정</th><th>검수자</th><th>주기</th><th class="right"><span class="sr-only">메뉴</span></th></tr></thead>
+                <tbody id="todo-rows">
+                <tr th:each="s : ${summaries}" th:with="t=${s.task()},
+                        st=${!t.active ? 'paused' : (t.endDate != null and t.endDate.isBefore(today) ? 'ended' : 'running')}"
+                    th:attr="data-state=${st}" th:classappend="${st != 'running'} ? 'dim'">
+                    <td>
+                        <a class="title-cell" th:href="@{|/admin/todo/${t.id}|}" th:text="${t.title}">매장 오픈 체크리스트</a>
+                        <span class="chips" style="margin-top:6px">
+                            <span class="chip outline" th:text="|항목 ${#lists.size(t.activeItems)}개|">항목 6개</span>
+                            <span class="chip outline" th:unless="${#lists.isEmpty(t.guideFiles)}" th:text="|첨부 ${#lists.size(t.guideFiles)}|">첨부 1</span>
+                        </span>
+                    </td>
+                    <td>
+                        <span th:if="${st == 'running'}" class="chip blue">진행 중</span>
+                        <span th:if="${st == 'paused'}" class="chip grey">일시중지</span>
+                        <span th:if="${st == 'ended'}" class="chip grey">종료</span>
+                    </td>
+                    <td>
+                        <div class="bar-cell">
+                            <div class="bar" role="progressbar" th:aria-valuenow="${s.rate()}" aria-valuemin="0" aria-valuemax="100" th:aria-label="|${t.title} 오늘 진행률|">
+                                <span th:style="|width: ${s.rate()}%|"></span></div>
+                            <small th:text="|${s.rate()}% · ${s.done()}/${s.total()}|">50% · 3/6</small>
+                        </div>
+                    </td>
+                    <td th:text="${t.targetText}">인하점</td>
+                    <td th:text="${t.reviewer != null ? t.reviewer.displayName : '검수 없음'}">김민수</td>
+                    <td class="nowrap" th:text="${t.cycleText}">매일</td>
+                    <td class="right">
+                        <div class="menu-wrap">
+                            <button type="button" class="icon-btn" data-menu-trigger aria-haspopup="menu" aria-expanded="false" th:aria-label="|${t.title} 메뉴|">
+                                <th:block th:replace="~{fragments/ui :: icon('more')}"/></button>
+                            <div class="menu" role="menu">
+                                <a role="menuitem" th:href="@{|/admin/todo/${t.id}|}">직원별 현황</a>
+                                <a role="menuitem" th:href="@{|/admin/todo/${t.id}/edit|}">수정</a>
+                                <form th:action="@{|/admin/todo/${t.id}/active|}" method="post">
+                                    <button th:if="${t.active}" type="submit" role="menuitem"
+                                            data-confirm="이 할 일을 일시중지할까요?" data-confirm-body="중지하는 동안 새 배정이 만들어지지 않아요. 언제든 다시 사용할 수 있어요."
+                                            data-confirm-ok="일시중지" data-danger>일시중지…</button>
+                                    <button th:unless="${t.active}" type="submit" role="menuitem">다시 사용</button>
+                                </form>
+                                <hr>
+                                <form th:action="@{|/admin/todo/${t.id}/delete|}" method="post">
+                                    <button type="submit" role="menuitem" class="danger"
+                                            th:attr="data-confirm=|‘${t.title}’ 할 일을 삭제할까요?|"
+                                            data-confirm-body="목록과 자동 배정에서 빠지고, 오늘부터 아직 제출하지 않은 배정도 함께 지워져요. 지난 제출·검수 기록은 남아요."
+                                            data-confirm-ok="삭제" data-danger>삭제…</button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

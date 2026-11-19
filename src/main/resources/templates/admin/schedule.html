@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>스케줄 배정</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>스케줄 배정</b></nav>
+
+<main layout:fragment="content" class="content" th:with="today=${#temporals.createToday()}">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub" th:text="|${#temporals.format(monday, 'M월 d일')} ~ ${#temporals.format(monday.plusDays(6), 'M월 d일')} 주|">11월 16일 주</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{/admin/schedule(week=${monday.minusDays(7)}, memberId=${form.memberId})}" class="btn">‹ 지난주</a>
+            <a th:href="@{/admin/schedule(memberId=${form.memberId})}" class="btn">이번 주</a>
+            <a th:href="@{/admin/schedule(week=${monday.plusDays(7)}, memberId=${form.memberId})}" class="btn">다음 주 ›</a>
+        </div>
+    </div>
+
+    <div class="row" style="justify-content:space-between">
+        <div th:replace="~{admin/attendance-tabs :: tabs('schedule')}"></div>
+        <nav class="segmented" aria-label="보기">
+            <a th:href="@{/admin/schedule(week=${monday}, memberId=${form.memberId})}" class="active" aria-current="page">주별</a>
+            <a th:href="@{/admin/schedule/month(month=${#temporals.format(monday, 'yyyy-MM')}, memberId=${form.memberId})}">월별</a>
+        </nav>
+    </div>
+
+    <section th:replace="~{admin/schedule-form :: form('week', null)}"></section>
+
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t week">
+                <thead><tr><th>직원</th>
+                    <th th:each="d : ${days}" th:classappend="${d == today} ? 'today'" th:text="${#temporals.format(d, 'M.d (E)')}">11.17 (월)</th></tr></thead>
+                <tbody>
+                <tr th:if="${#lists.isEmpty(rows)}"><td colspan="8" class="empty-sm">재직 중인 직원이 없어요.</td></tr>
+                <tr th:each="row : ${rows}">
+                    <td class="nowrap"><b th:text="${row.member().displayName}">이서연</b></td>
+                    <td th:each="cell, cs : ${row.days()}" th:classappend="${days[cs.index] == today} ? 'today'">
+                        <span class="shift" th:each="s : ${cell}">
+                            <span th:text="|${#temporals.format(s.startTime, 'HH:mm')}–${#temporals.format(s.endTime, 'HH:mm')}${s.memo != null ? ' ' + s.memo : ''}|">09:00–18:00</span>
+                            <form th:action="@{|/admin/schedule/${s.id}/delete|}" method="post" class="inline">
+                                <input type="hidden" name="week" th:value="${monday}">
+                                <button type="submit" th:aria-label="|${row.member().displayName} 근무 지우기|"
+                                        data-confirm="이 근무를 지울까요?" data-confirm-ok="지우기" data-danger>×</button>
+                            </form>
+                        </span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

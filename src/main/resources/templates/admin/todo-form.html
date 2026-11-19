@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${task != null} ? '할 일 수정' : '할 일 만들기'">할 일 만들기</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치">
+    <span>관리자</span><span class="sep">›</span><a th:href="@{/admin/todo}">할 일</a><span class="sep">›</span><b th:text="${task != null} ? '수정' : '만들기'">만들기</b>
+</nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title" th:text="${task != null} ? '할 일 수정' : '할 일 만들기'">할 일 만들기</h1>
+            <p class="page-sub" th:text="${task != null} ? '이미 낸 답이 있는 항목은 지워도 지난 기록에 남아요. 대상이 늘면 오늘 몫이 바로 배정돼요' : '저장하면 오늘 몫이 바로 배정되고, 다음부터는 매일 새벽 자동으로 배정돼요'">저장하면 오늘 몫이 바로 배정돼요</p>
+        </div>
+    </div>
+
+    <!-- TodoTaskForm : 항목은 itemIds / itemTypes / itemLabels / itemOptions / itemRequired 를 같은 순서로 (새 항목은 itemIds 가 빈 값) -->
+    <form th:action="${task != null} ? @{|/admin/todo/${task.id}/edit|} : @{/admin/todo/new}" th:object="${todoTaskForm}" method="post" enctype="multipart/form-data" data-once>
+        <div th:if="${#fields.hasGlobalErrors()}" class="alert danger" style="margin-bottom:16px">
+            <p th:each="e : ${#fields.globalErrors()}" th:text="${e}">오류</p>
+        </div>
+
+        <div class="split">
+            <div class="stack">
+                <section class="card">
+                    <label class="sr-only" for="title">제목</label>
+                    <input type="text" th:field="*{title}" class="input title" placeholder="제목 (예: 매장 오픈 체크리스트)" maxlength="100">
+                    <p th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="field-error"></p>
+                    <div class="field" style="margin-top:16px">
+                        <label for="guide">작업 가이드</label>
+                        <textarea th:field="*{guide}" class="textarea" rows="4" placeholder="어떻게 하면 되는지 적어 주세요"></textarea>
+                    </div>
+                    <div class="field" style="margin-top:12px">
+                        <label for="guideFiles">가이드 첨부 (여러 개)</label>
+                        <input id="guideFiles" type="file" name="guideFiles" multiple class="input file-input">
+                    </div>
+                    <div class="field" style="margin-top:12px" th:if="${task != null and !#lists.isEmpty(task.guideFiles)}">
+                        <span class="label">지금 첨부 (체크하면 지워요)</span>
+                        <label class="check" th:each="f : ${task.guideFiles}">
+                            <input type="checkbox" name="removeGuideFiles" th:value="${f.path}"> <span th:text="|📎 ${f.originalName}|">가이드.pdf</span>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="card" data-builder>
+                    <div class="card-head"><h2>항목</h2><span class="meta">객관식은 선택지를 쉼표로 (예: 상,중,하)</span></div>
+                    <div class="builder" data-builder-list>
+                        <!-- 수정할 때 저장된 항목 / 검증 오류로 다시 보일 때 입력했던 항목 -->
+                        <div class="f-card" th:each="lbl, st : ${todoTaskForm.itemLabels}"
+                             th:with="tp=${todoTaskForm.typeAt(st.index) ?: 'YES_NO'}">
+                            <div class="f-top">
+                                <span class="grip" data-n>01</span>
+                                <span class="chip blue" data-type-chip><th:block th:each="it : ${itemTypes}" th:if="${it.name() == tp}" th:text="${it.label}">예/아니오</th:block></span>
+                                <span class="spacer"></span>
+                                <button type="button" class="btn sm ghost" data-remove-card>지우기</button>
+                            </div>
+                            <input type="hidden" name="itemIds" th:value="${todoTaskForm.itemIdAt(st.index)}">
+                            <input type="hidden" name="itemTypes" th:value="${tp}" data-type-input>
+                            <div class="f-row">
+                                <input type="text" name="itemLabels" class="input" th:value="${lbl}" maxlength="200" placeholder="질문" aria-label="질문">
+                                <select name="itemRequired" class="select" aria-label="필수 여부">
+                                    <option value="Y">필수</option>
+                                    <option value="N" th:selected="${todoTaskForm.requiredAt(st.index) == 'N'}">선택</option>
+                                </select>
+                            </div>
+                            <div data-options><input type="text" name="itemOptions" class="input" th:value="${todoTaskForm.optionAt(st.index)}" maxlength="500" placeholder="선택지 (쉼표로)" aria-label="객관식 선택지"></div>
+                        </div>
+                    </div>
+                    <p class="empty-sm" data-builder-empty>아직 항목이 없어요. 아래에서 종류를 골라 추가하세요.</p>
+                    <div class="add-field" style="margin-top:12px">
+                        <div class="menu-wrap" style="display:block">
+                            <button type="button" class="add-btn" data-menu-trigger aria-haspopup="menu" aria-expanded="false">+ 항목 추가</button>
+                            <div class="menu left" role="menu" style="width:100%">
+                                <div class="type-menu">
+                                    <button type="button" role="menuitem" th:each="t : ${itemTypes}" th:attr="data-add-type=${t}" th:text="${t.label}">예/아니오</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <template data-builder-tpl>
+                        <div class="f-card">
+                            <div class="f-top">
+                                <span class="grip" data-n>01</span>
+                                <span class="chip blue" data-type-chip>종류</span>
+                                <span class="spacer"></span>
+                                <button type="button" class="btn sm ghost" data-remove-card>지우기</button>
+                            </div>
+                            <input type="hidden" name="itemIds" value="">
+                            <input type="hidden" name="itemTypes" value="YES_NO" data-type-input>
+                            <div class="f-row">
+                                <input type="text" name="itemLabels" class="input" maxlength="200" placeholder="질문 (예: 출입문을 점검했나요?)" aria-label="질문">
+                                <select name="itemRequired" class="select" aria-label="필수 여부"><option value="Y">필수</option><option value="N">선택</option></select>
+                            </div>
+                            <div data-options><input type="text" name="itemOptions" class="input" maxlength="500" placeholder="선택지 (쉼표로)" aria-label="객관식 선택지"></div>
+                        </div>
+                    </template>
+                </section>
+            </div>
+
+            <aside class="stack">
+                <section class="card">
+                    <div class="card-head"><h2>언제</h2></div>
+                    <div class="stack" style="gap:12px">
+                        <div class="field"><label for="cycle">주기</label>
+                            <select th:field="*{cycle}" class="select" data-cycle-select>
+                                <option th:each="c : ${cycles}" th:value="${c}" th:text="${c.label}">매일</option>
+                            </select></div>
+                        <div class="toggle-chips" data-cycle-show="WEEKLY" role="group" aria-label="요일">
+                            <label th:each="d : ${weekDays}">
+                                <input type="checkbox" th:field="*{days}" th:value="${d}">
+                                <span th:text="${#strings.arraySplit('월,화,수,목,금,토,일', ',')[d.ordinal()]}">월</span>
+                            </label>
+                        </div>
+                        <div class="field" data-cycle-show="MONTHLY"><label for="dayOfMonth">매월 며칠</label>
+                            <input type="number" th:field="*{dayOfMonth}" class="input" min="1" max="31" placeholder="1~31">
+                            <small class="muted">31일처럼 없는 날은 그 달 마지막 날</small></div>
+                        <div class="grid grid-2" style="gap:10px">
+                            <div class="field"><label for="startDate">시작일</label>
+                                <input type="date" th:field="*{startDate}" class="input">
+                                <p th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}" class="field-error"></p></div>
+                            <div class="field"><label for="endDate">종료일 (비우면 계속)</label>
+                                <input type="date" th:field="*{endDate}" class="input"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head"><h2>누가</h2></div>
+                    <div class="stack" style="gap:12px">
+                        <div class="field"><span class="label">근무지(매장) 단위 — 그 매장 직원 모두</span>
+                            <div class="check-grid">
+                                <label class="check" th:each="w : ${workplaces}">
+                                    <input type="checkbox" th:field="*{workplaceIds}" th:value="${w.id}"> <span th:text="${w.name}">인하점</span>
+                                </label>
+                            </div></div>
+                        <div class="field"><span class="label">직원 단위</span>
+                            <div class="check-grid">
+                                <label class="check" th:each="m : ${members}">
+                                    <input type="checkbox" th:field="*{memberIds}" th:value="${m.id}">
+                                    <span th:text="${m.displayName}">이서연</span> <small th:text="${m.workplace?.name}">인하점</small>
+                                </label>
+                            </div></div>
+                        <div class="field"><label for="reviewerId">검수자 (비우면 제출하면 바로 ‘제출 완료’)</label>
+                            <select th:field="*{reviewerId}" class="select">
+                                <option value="">검수 없음</option>
+                                <option th:each="m : ${members}" th:value="${m.id}" th:text="|${m.displayName} (${m.role.label})|">김민수</option>
+                            </select></div>
+                    </div>
+                </section>
+
+                <div class="row">
+                    <a th:href="@{/admin/todo}" class="btn">취소</a>
+                    <button type="submit" class="btn primary" style="flex:1">저장</button>
+                </div>
+            </aside>
+        </div>
+    </form>
+</main>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${form.title}">보고서 작성</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><a th:href="@{/report}">보고서</a><span class="sep">›</span><b>작성</b></nav>
+
+<main layout:fragment="content" class="content narrow">
+    <div class="task-form">
+        <div class="task-form-head">
+            <small th:text="|${form.category?.label} · ${form.scheduleText != null ? form.scheduleText : form.cycle?.label} · 결재 ${form.approvalLineText}|">팀별 · 매주 월요일</small>
+            <h2 th:text="${form.title}">주간 업무 보고</h2>
+        </div>
+        <div class="task-form-body">
+            <div th:if="${form.description != null}" class="guide" style="margin-top:16px"><span class="label">작성 안내</span><span th:text="${form.description}">설명</span></div>
+            <div th:unless="${canWrite}" class="banner-red" style="margin-top:16px">이 양식을 쓸 수 있는 대상이 아니에요. (<span th:text="${form.writerText}">영업팀</span>)</div>
+
+            <!-- 입력 이름 field_ / file_ / sig_ + submitToken (중복 제출 방지) -->
+            <form th:if="${canWrite}" th:action="@{|/report/write/${form.id}|}" method="post" enctype="multipart/form-data" data-once>
+                <input type="hidden" name="submitToken" th:value="${submitToken}">
+                <div class="q-card" th:each="f : ${form.activeFields}">
+                    <div class="q"><span th:text="${f.label}">질문</span><span class="req" th:if="${f.required}" aria-label="필수">*</span>
+                        <span class="chip outline" th:text="${f.type.label}">주관식</span></div>
+                    <th:block th:replace="~{fragments/ui :: answerInput(${f.type.name()}, ${f.id}, 'field_', ${f.optionList}, null)}"></th:block>
+                </div>
+                <div class="row" style="margin-top:8px">
+                    <a th:href="@{/report}" class="btn lg">취소</a>
+                    <button type="submit" class="btn primary lg" style="flex:1">제출하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</main>
+</body>
+</html>

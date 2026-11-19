@@ -1,0 +1,433 @@
+// InhaWorks 공통 스크립트 — app.js
+//  1) 확인 모달 (window.confirm 대신) : <button data-confirm="제목" data-confirm-body="설명" data-confirm-ok="삭제"
+//                                       data-danger data-reason="reason" data-reason-label="사유">
+//     - 버튼 또는 <form> 에 붙인다. data-reason 이 있으면 사유 입력칸이 나오고, 채워야 확인 버튼이 켜진다
+//       (입력한 사유는 form 의 input[name=reason] 에 넣어서 보낸다)
+//  2) 토스트 : 서버 플래시 메시지(<template data-toast>)와 data-async 폼 결과를 오른쪽 아래에
+//  3) ⋯ 메뉴 : [data-menu-trigger] → 다음 형제 .menu 열기 (트리거 쪽에서 커지며 나타남)
+//  4) 서명 패드, 사진 미리보기, 반복 주기 칸, 출퇴근 시계, 두 번 누르기 방지(data-once)
+//  5) 폼 빌더 : [data-builder] 안의 '+ 항목 추가' → 종류 메뉴 → 항목 카드 추가 / 지우기 / 순서 번호
+//  6) 목록-상세 (결재함, 오늘 할 일) : [data-md] 안의 [data-md-item] 을 누르면 상세 화면의 [data-md-content] 를 옆에 불러온다
+//  7) 할 일 목록 세그먼트 필터 : [data-filter-tabs] + 행의 data-state
+(function () {
+    'use strict';
+
+    var $ = function (sel, root) { return (root || document).querySelector(sel); };
+    var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+    // ---------- 2. 토스트 ----------
+    var toastBox;
+    // undoUrl 이 있으면 '실행 취소' 버튼 (레이아웃의 #undo-form 으로 POST, CSRF 토큰 포함)
+    function toast(message, kind, undoUrl) {
+        if (!message) return;
+        if (!toastBox) {
+            toastBox = document.createElement('div');
+            toastBox.className = 'toasts';
+            toastBox.setAttribute('role', 'status');
+            toastBox.setAttribute('aria-live', 'polite');
+            document.body.appendChild(toastBox);
+        }
+        var t = document.createElement('div');
+        t.className = 'toast' + (kind === 'error' ? ' error' : '');
+        var span = document.createElement('span');
+        span.textContent = message;
+        t.appendChild(span);
+        var undoForm = document.getElementById('undo-form');
+        if (undoUrl && undoForm) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = '실행 취소';
+            b.addEventListener('click', function () {
+                b.disabled = true;
+                undoForm.action = undoUrl;
+                undoForm.submit();
+            });
+            t.appendChild(b);
+        }
+        toastBox.appendChild(t);
+        requestAnimationFrame(function () { t.classList.add('show'); });
+        setTimeout(function () {
+            t.classList.remove('show');
+            setTimeout(function () { t.remove(); }, 250);
+        }, kind === 'error' ? 6000 : (undoUrl ? 9000 : 3800));
+    }
+    window.iwToast = toast;
+
+    function flushToasts() {
+        $$('template[data-toast]').forEach(function (tpl) {
+            toast(tpl.content.textContent.trim(), tpl.dataset.toast, tpl.dataset.undo);
+            tpl.remove();
+        });
+        try {
+            var saved = sessionStorage.getItem('iw-toast');
+            if (saved) {
+                sessionStorage.removeItem('iw-toast');
+                var s = JSON.parse(saved);
+                toast(s.message, null, s.undo);
+            }
+        } catch (e) { /* 저장소를 못 쓰면 무시 */ }
+    }
+
+    // ---------- 1. 확인 모달 ----------
+    var modal;
+    function confirmModal(opts) {
+        return new Promise(function (resolve) {
+            if (modal) modal.remove();
+            modal = document.createElement('div');
+            modal.className = 'scrim';
+            modal.innerHTML =
+                '<div class="modal" role="dialog" aria-modal="true" aria-labelledby="iw-modal-title">' +
+                '<h3 id="iw-modal-title"></h3><p></p>' +
+                '<label class="sr-only" for="iw-modal-reason"></label>' +
+                '<textarea id="iw-modal-reason" class="textarea" maxlength="500" hidden></textarea>' +
+                '<div class="modal-actions"><button type="button" class="btn" data-cancel>취소</button>' +
+                '<button type="button" class="btn" data-ok></button></div></div>';
+            $('h3', modal).textContent = opts.title || '계속할까요?';
+            var p = $('p', modal);
+            if (opts.body) p.textContent = opts.body; else p.remove();
+            var reason = $('textarea', modal);
+            var ok = $('[data-ok]', modal);
+            ok.textContent = opts.ok || '확인';
+            ok.classList.add(opts.danger ? 'danger' : 'primary');
+            if (opts.danger) { ok.classList.remove('primary'); ok.classList.add('danger'); }
+            if (opts.reason) {
+                reason.hidden = false;
+                reason.placeholder = opts.reasonLabel || '사유를 입력해 주세요 (필수)';
+                $('label', modal).textContent = opts.reasonLabel || '사유';
+                ok.disabled = true;
+                reason.addEventListener('input', function () { ok.disabled = reason.value.trim() === ''; });
+            }
+            var last = document.activeElement;
+            function close(value) {
+                modal.classList.remove('open');
+                document.removeEventListener('keydown', onKey);
+                var m = modal;
+                setTimeout(function () { m.remove(); }, 200);
+                if (last && last.focus) last.focus();
+                resolve(value);
+            }
+            function onKey(e) {
+                if (e.key === 'Escape') close(null);
+                if (e.key === 'Tab') {   // 모달 안에서만 포커스 이동
+                    var f = $$('button:not([disabled]), textarea:not([hidden])', modal);
+                    if (!f.length) return;
+                    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+                    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+                }
+            }
+            $('[data-cancel]', modal).addEventListener('click', function () { close(null); });
+            modal.addEventListener('click', function (e) { if (e.target === modal) close(null); });
+            ok.addEventListener('click', function () { close({reason: reason.value.trim()}); });
+            document.addEventListener('keydown', onKey);
+            document.body.appendChild(modal);
+            requestAnimationFrame(function () { modal.classList.add('open'); });
+            (opts.reason ? reason : ok).focus();
+        });
+    }
+    window.iwConfirm = confirmModal;
+
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        var submitter = e.submitter;
+        var holder = (submitter && submitter.dataset.confirm !== undefined) ? submitter
+            : (form.dataset.confirm !== undefined ? form : null);
+        if (holder && !form._iwConfirmed) {
+            e.preventDefault();
+            confirmModal({
+                title: holder.dataset.confirm,
+                body: holder.dataset.confirmBody,
+                ok: holder.dataset.confirmOk,
+                danger: holder.dataset.danger !== undefined,
+                reason: holder.dataset.reason,
+                reasonLabel: holder.dataset.reasonLabel
+            }).then(function (result) {
+                if (!result) return;
+                if (holder.dataset.reason) {
+                    var input = form.querySelector('[name="' + holder.dataset.reason + '"]');
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = holder.dataset.reason;
+                        form.appendChild(input);
+                    }
+                    input.value = result.reason;
+                }
+                form._iwConfirmed = true;
+                if (form.requestSubmit) form.requestSubmit(submitter || undefined); else form.submit();
+                form._iwConfirmed = false;
+            });
+            return;
+        }
+        // 비동기 폼 : 제자리에서 처리하고 토스트 → 새로고침 (예: 대시보드의 검수 통과)
+        if (form.dataset.async !== undefined && window.fetch) {
+            e.preventDefault();
+            var data = new FormData(form);
+            if (submitter && submitter.name) data.append(submitter.name, submitter.value);
+            $$('button[type="submit"]', form).forEach(function (b) { b.disabled = true; });
+            fetch(form.action, {method: 'POST', body: data, credentials: 'same-origin'})
+                .then(function (res) {
+                    if (!res.ok) throw new Error('fail');
+                    try {
+                        sessionStorage.setItem('iw-toast', JSON.stringify({
+                            message: form.dataset.async || '처리했어요.', undo: form.dataset.undo || null }));
+                    } catch (err) { /* 무시 */ }
+                    location.reload();
+                })
+                .catch(function () {
+                    $$('button[type="submit"]', form).forEach(function (b) { b.disabled = false; });
+                    toast('처리하지 못했어요. 다시 시도해 주세요.', 'error');
+                });
+            return;
+        }
+        // 두 번 누르기 방지
+        if (form.dataset.once !== undefined) {
+            setTimeout(function () { $$('button[type="submit"]', form).forEach(function (b) { b.disabled = true; }); }, 0);
+        }
+    });
+
+    // ---------- 3. ⋯ 메뉴 ----------
+    function closeMenus(except) {
+        $$('.menu.open').forEach(function (m) {
+            if (m !== except) {
+                m.classList.remove('open');
+                var t = m.parentElement && m.parentElement.querySelector('[data-menu-trigger]');
+                if (t) t.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
+    document.addEventListener('click', function (e) {
+        var trigger = e.target.closest('[data-menu-trigger]');
+        if (trigger) {
+            e.preventDefault();
+            var menu = trigger.parentElement.querySelector('.menu');
+            var open = !menu.classList.contains('open');
+            closeMenus(menu);
+            if (open && trigger.closest('.table-box')) {
+                // 표 상자(가로 스크롤)에 잘리지 않도록 화면 기준으로 띄운다
+                var r = trigger.getBoundingClientRect();
+                menu.style.position = 'fixed';
+                menu.style.top = (r.bottom + 6) + 'px';
+                menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+            }
+            menu.classList.toggle('open', open);
+            trigger.setAttribute('aria-expanded', String(open));
+            if (open) { var first = menu.querySelector('a, button:not([aria-disabled="true"])'); if (first) first.focus(); }
+            return;
+        }
+        var disabled = e.target.closest('.menu [aria-disabled="true"]');
+        if (disabled) { e.preventDefault(); toast(disabled.dataset.why || '아직 지원하지 않는 기능이에요.'); return; }
+        if (!e.target.closest('.menu')) closeMenus();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenus(); });
+    // 화면 기준으로 띄운 메뉴(표 안의 ⋯)만 스크롤하면 닫는다 (자리가 어긋나므로). 항목 추가 메뉴 등은 그대로
+    window.addEventListener('scroll', function () {
+        $$('.menu.open').forEach(function (m) {
+            if (m.style.position === 'fixed') {
+                m.classList.remove('open');
+                var t = m.parentElement && m.parentElement.querySelector('[data-menu-trigger]');
+                if (t) t.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }, true);
+
+    // ---------- 4. 서명 패드 / 사진 미리보기 / 시계 / 반복 주기 ----------
+    function initSignature(root) {
+        $$('canvas.sig-pad', root).forEach(function (canvas) {
+            if (canvas._iw) return;
+            canvas._iw = true;
+            var ctx = canvas.getContext('2d');
+            var drawing = false, drawn = false;
+            function resize() {
+                var ratio = window.devicePixelRatio || 1;
+                canvas.width = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+                ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0B0F19';
+            }
+            resize();
+            function pos(e) { var r = canvas.getBoundingClientRect(); return {x: e.clientX - r.left, y: e.clientY - r.top}; }
+            canvas.addEventListener('pointerdown', function (e) {
+                drawing = true; canvas.setPointerCapture(e.pointerId);
+                var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y);
+            });
+            canvas.addEventListener('pointermove', function (e) {
+                if (!drawing) return;
+                var p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); drawn = true;
+            });
+            ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) {
+                canvas.addEventListener(t, function () { drawing = false; });
+            });
+            var wrap = canvas.closest('.sig-wrap');
+            var clear = wrap && wrap.querySelector('[data-sig-clear]');
+            if (clear) clear.addEventListener('click', function () { ctx.clearRect(0, 0, canvas.width, canvas.height); drawn = false; });
+            var form = canvas.closest('form');
+            if (form) form.addEventListener('submit', function () {
+                var input = form.querySelector('input[name="' + canvas.dataset.target + '"]');
+                if (input) input.value = drawn ? canvas.toDataURL('image/png') : '';
+            });
+        });
+    }
+
+    function initPhotoPreview(root) {
+        $$('.photo-pick input[type=file]', root).forEach(function (input) {
+            if (input._iw) return;
+            input._iw = true;
+            input.addEventListener('change', function () {
+                var drop = input.closest('.photo-pick').querySelector('.drop');
+                var file = input.files && input.files[0];
+                if (!drop || !file) return;
+                var img = drop.querySelector('img') || document.createElement('img');
+                img.alt = '';
+                img.src = URL.createObjectURL(file);
+                drop.appendChild(img);
+            });
+        });
+    }
+
+    function initClock(root) {
+        var clock = $('[data-clock]', root);
+        if (!clock || clock._iw) return;
+        clock._iw = true;
+        var tick = function () {
+            var d = new Date();
+            clock.textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            var s = $('[data-clock-sec]', root);
+            if (s) s.textContent = ':' + String(d.getSeconds()).padStart(2, '0');
+        };
+        tick();
+        setInterval(tick, 1000);
+    }
+
+    function initCycle(root) {
+        var cycle = $('[data-cycle-select]', root);
+        if (!cycle) return;
+        var sync = function () {
+            $$('[data-cycle-show]', root).forEach(function (el) { el.hidden = el.dataset.cycleShow !== cycle.value; });
+        };
+        cycle.addEventListener('change', sync);
+        sync();
+    }
+
+    // ---------- 5. 폼 빌더 ----------
+    function initBuilder(root) {
+        $$('[data-builder]', root).forEach(function (builder) {
+            var list = $('[data-builder-list]', builder);
+            var tpl = $('template[data-builder-tpl]', builder);
+            var labels = JSON.parse(builder.dataset.labels || '{}');
+            function renumber() {
+                $$('.f-card', list).forEach(function (card, i) {
+                    var n = card.querySelector('[data-n]');
+                    if (n) n.textContent = String(i + 1).padStart(2, '0');
+                    var t = card.querySelector('[data-type-input]');
+                    var opt = card.querySelector('[data-options]');
+                    if (t && opt) opt.hidden = t.value !== 'CHOICE';
+                });
+                var empty = $('[data-builder-empty]', builder);
+                if (empty) empty.hidden = $$('.f-card', list).length > 0;
+            }
+            builder.addEventListener('click', function (e) {
+                var pick = e.target.closest('[data-add-type]');
+                if (pick) {
+                    var type = pick.dataset.addType;
+                    var node = tpl.content.cloneNode(true);
+                    var card = node.querySelector('.f-card');
+                    card.querySelector('[data-type-input]').value = type;
+                    card.querySelector('[data-type-chip]').textContent = labels[type] || pick.textContent.trim();
+                    list.appendChild(node);
+                    renumber();
+                    closeMenus();
+                    var input = list.lastElementChild.querySelector('input[type=text]');
+                    if (input) input.focus();
+                    return;
+                }
+                var rm = e.target.closest('[data-remove-card]');
+                if (rm) {
+                    rm.closest('.f-card').remove();
+                    renumber();
+                }
+            });
+            renumber();
+        });
+    }
+
+    // ---------- 6. 목록-상세 ----------
+    function initMasterDetail(root) {
+        $$('[data-md]', root).forEach(function (md) {
+            var pane = $('[data-md-pane]', md);
+            if (!pane) return;
+            function wide() { return window.matchMedia('(min-width: 1101px)').matches; }
+            function load(item, push) {
+                $$('[data-md-item]', md).forEach(function (i) { i.classList.toggle('selected', i === item); i.removeAttribute('aria-current'); });
+                item.setAttribute('aria-current', 'true');
+                pane.setAttribute('aria-busy', 'true');
+                fetch(item.getAttribute('href'), {credentials: 'same-origin'})
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        var content = doc.querySelector('[data-md-content]');
+                        pane.innerHTML = '';
+                        if (content) pane.appendChild(document.importNode(content, true));
+                        else pane.innerHTML = '<div class="empty"><b>불러오지 못했어요</b></div>';
+                        pane.removeAttribute('aria-busy');
+                        init(pane);
+                    })
+                    .catch(function () { location.href = item.getAttribute('href'); });
+            }
+            md.addEventListener('click', function (e) {
+                var item = e.target.closest('[data-md-item]');
+                if (!item || !wide() || e.metaKey || e.ctrlKey) return;
+                e.preventDefault();
+                load(item, true);
+            });
+            var first = $('[data-md-item]', md);
+            if (first && wide() && !pane.querySelector('[data-md-content]')) load(first, false);
+        });
+    }
+
+    // ---------- 7. 세그먼트 필터 (할 일 목록) ----------
+    function initFilterTabs(root) {
+        $$('[data-filter-tabs]', root).forEach(function (tabs) {
+            var target = document.getElementById(tabs.dataset.filterTabs);
+            if (!target) return;
+            tabs.addEventListener('click', function (e) {
+                var b = e.target.closest('[data-filter]');
+                if (!b) return;
+                $$('[data-filter]', tabs).forEach(function (x) { x.classList.toggle('active', x === b); x.setAttribute('aria-selected', String(x === b)); });
+                var f = b.dataset.filter;
+                var shown = 0;
+                $$('[data-state]', target).forEach(function (row) {
+                    var ok = f === 'all' || row.dataset.state === f;
+                    row.hidden = !ok;
+                    if (ok) shown++;
+                });
+                var empty = document.querySelector('[data-filter-empty="' + tabs.dataset.filterTabs + '"]');
+                if (empty) empty.hidden = shown > 0;
+            });
+        });
+    }
+
+    function init(root) {
+        initSignature(root);
+        initPhotoPreview(root);
+        initClock(root);
+        initCycle(root);
+        initBuilder(root);
+        initFilterTabs(root);
+    }
+
+    init(document);
+    initMasterDetail(document);
+    flushToasts();
+})();
+
+// 월별 스케줄 달력의 '+' : 배정 폼 날짜를 그 날로 바꾸고 폼으로 이동
+document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-pick-date]');
+    if (!b) return;
+    var input = document.getElementById('sdate');
+    if (!input) return;
+    input.value = b.dataset.pickDate;
+    var form = document.getElementById('assign');
+    if (form) form.scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+    input.focus();
+});

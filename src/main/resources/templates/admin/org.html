@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>팀 · 근무지</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>직원·조직</span><span class="sep">›</span><b>팀 · 근무지</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">직원 · 조직</h1>
+            <p class="page-sub">직원의 소속 팀과 근무지(매장). 할 일·보고서 대상을 고를 때 써요</p>
+        </div>
+    </div>
+    <nav class="segmented" aria-label="직원·조직">
+        <a th:href="@{/admin/members}">직원</a>
+        <a th:href="@{/admin/org}" class="active" aria-current="page">팀 · 근무지</a>
+    </nav>
+
+    <div class="grid grid-2">
+        <section class="card">
+            <div class="card-head"><h2>팀</h2><span class="meta" th:text="|${#lists.size(teams)}개|">2개</span></div>
+            <form th:action="@{/admin/org/team}" method="post" class="row" style="gap:8px;margin-bottom:8px">
+                <label class="sr-only" for="tname">팀 이름</label>
+                <input id="tname" type="text" name="name" class="input" placeholder="팀 이름" required maxlength="50" style="flex:1 1 140px">
+                <label class="sr-only" for="tdesc">설명</label>
+                <input id="tdesc" type="text" name="description" class="input" placeholder="설명" maxlength="200" style="flex:2 1 160px">
+                <button type="submit" class="btn primary">추가</button>
+            </form>
+            <div class="list">
+                <div class="list-item" th:each="t : ${teams}">
+                    <div class="body"><b th:text="${t.name}">운영팀</b><small th:text="${t.description ?: '-'}">설명</small></div>
+                    <form th:action="@{|/admin/org/team/${t.id}/delete|}" method="post" class="inline">
+                        <button type="submit" class="btn sm danger" th:attr="data-confirm=|‘${t.name}’ 팀을 삭제할까요?|"
+                                data-confirm-body="되돌릴 수 없어요." data-confirm-ok="삭제" data-danger>삭제</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>근무지 · 매장</h2><span class="meta" th:text="|${#lists.size(workplaces)}곳|">2곳</span></div>
+            <form th:action="@{/admin/org/workplace}" method="post" class="row" style="gap:8px;margin-bottom:8px">
+                <label class="sr-only" for="wname">근무지 이름</label>
+                <input id="wname" type="text" name="name" class="input" placeholder="근무지 이름" required maxlength="50" style="flex:1 1 140px">
+                <label class="sr-only" for="waddr">주소</label>
+                <input id="waddr" type="text" name="address" class="input" placeholder="주소" maxlength="200" style="flex:2 1 160px">
+                <button type="submit" class="btn primary">추가</button>
+            </form>
+            <div class="list">
+                <div class="list-item" th:each="w : ${workplaces}">
+                    <div class="body"><b th:text="${w.name}">인하점</b><small th:text="${w.address ?: '-'}">주소</small></div>
+                    <form th:action="@{|/admin/org/workplace/${w.id}/delete|}" method="post" class="inline">
+                        <button type="submit" class="btn sm danger" th:attr="data-confirm=|‘${w.name}’ 근무지를 삭제할까요?|"
+                                data-confirm-body="되돌릴 수 없어요." data-confirm-ok="삭제" data-danger>삭제</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

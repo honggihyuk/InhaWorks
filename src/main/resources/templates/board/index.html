@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>게시판</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><b>게시판</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">게시판</h1>
+            <p class="page-sub">공지, 주제·팀별 게시판, 이슈 &amp; 해결</p>
+        </div>
+        <div class="actions" sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin/board}" class="btn">게시판 관리</a></div>
+    </div>
+
+    <div th:replace="~{board/tabs :: tabs(null)}"></div>
+
+    <section class="card flush" th:unless="${#lists.isEmpty(pinned)}">
+        <div class="card-head"><h2>고정 공지</h2></div>
+        <div class="table-box" style="margin-top:8px">
+            <table class="t">
+                <tbody>
+                <tr th:each="p : ${pinned}" class="pinned">
+                    <td style="width:1%"><span class="chip solid">공지</span></td>
+                    <td><a class="title-cell" th:href="@{|/board/post/${p.id}|}" th:text="${p.title}">제목</a></td>
+                    <td class="muted" th:text="${p.board.name}">사내 공지</td>
+                    <td class="right tnum muted" th:text="${#temporals.format(p.created, 'M.d')}">11.19</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div th:if="${#maps.isEmpty(boards)}" class="card empty"><b>게시판이 없어요</b><span>관리자 화면에서 게시판을 만들어 주세요</span></div>
+    <section class="grid grid-3" th:unless="${#maps.isEmpty(boards)}">
+        <a th:each="e : ${boards}" th:with="b=${e.key}" class="card kpi" th:href="@{|/board/${b.id}|}">
+            <span class="row" style="gap:6px">
+                <b style="font-size:16px" th:text="${b.name}">사내 공지</b>
+                <span class="chip blue" th:if="${b.issueBoard}">이슈</span>
+                <span class="chip outline" th:if="${b.team != null}" th:text="|${b.team.name} 전용|">영업팀 전용</span>
+            </span>
+            <span class="foot" th:text="${b.description ?: ' '}">설명</span>
+            <span class="label tnum" th:text="|글 ${e.value}|">글 3</span>
+        </a>
+    </section>
+</main>
+</body>
+</html>

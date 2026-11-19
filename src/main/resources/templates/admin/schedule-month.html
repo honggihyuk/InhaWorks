@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>월별 스케줄</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>월별 스케줄</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub" th:text="|${#temporals.format(cal.month().atDay(1), 'yyyy년 M월')} · 근무 ${cal.total()}건|">2026년 11월</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{/admin/schedule/month(month=${cal.prev()}, who=${who}, memberId=${form.memberId})}" class="btn">‹ 지난달</a>
+            <a th:href="@{/admin/schedule/month(who=${who}, memberId=${form.memberId})}" class="btn">이번 달</a>
+            <a th:href="@{/admin/schedule/month(month=${cal.next()}, who=${who}, memberId=${form.memberId})}" class="btn">다음 달 ›</a>
+        </div>
+    </div>
+
+    <div class="row" style="justify-content:space-between">
+        <div th:replace="~{admin/attendance-tabs :: tabs('schedule')}"></div>
+        <nav class="segmented" aria-label="보기">
+            <a th:href="@{/admin/schedule(week=${cal.month().atDay(1)}, memberId=${form.memberId})}">주별</a>
+            <a th:href="@{/admin/schedule/month(month=${cal.month()}, memberId=${form.memberId})}" class="active" aria-current="page">월별</a>
+        </nav>
+    </div>
+
+    <section th:replace="~{admin/schedule-form :: form('month', ${who})}"></section>
+
+    <section class="card flush">
+        <div class="card-head">
+            <h2>달력</h2>
+            <form th:action="@{/admin/schedule/month}" method="get" class="row" style="gap:6px">
+                <input type="hidden" name="month" th:value="${cal.month()}">
+                <input type="hidden" name="memberId" th:value="${form.memberId}">
+                <label class="sr-only" for="who">볼 직원</label>
+                <select id="who" name="who" class="select" style="min-height:32px;padding:4px 10px" onchange="this.form.submit()">
+                    <option value="">전체 직원</option>
+                    <option th:each="m : ${members}" th:value="${m.id}" th:selected="${who == m.id}" th:text="${m.displayName}">이서연</option>
+                </select>
+            </form>
+        </div>
+        <div class="table-box" style="margin-top:12px">
+            <table class="month-cal">
+                <thead><tr><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th><th>일</th></tr></thead>
+                <tbody>
+                <tr th:each="week : ${cal.weeks()}">
+                    <td th:each="d : ${week}" th:classappend="|${d.inMonth() ? '' : 'out'} ${d.today() ? 'today' : ''}|">
+                        <div class="dnum">
+                            <span th:text="${d.date().dayOfMonth}">1</span>
+                            <button type="button" class="pick" th:attr="data-pick-date=${d.date()}"
+                                    th:aria-label="|${#temporals.format(d.date(), 'M월 d일')}로 배정|" title="이 날짜로 배정">+</button>
+                        </div>
+                        <span class="shift" th:each="s : ${d.schedules()}">
+                            <span th:text="|${who == null ? s.member.displayName + ' ' : ''}${#temporals.format(s.startTime, 'HH:mm')}–${#temporals.format(s.endTime, 'HH:mm')}${s.memo != null ? ' ' + s.memo : ''}|">이서연 09:00–18:00</span>
+                            <form th:action="@{|/admin/schedule/${s.id}/delete|}" method="post" class="inline">
+                                <input type="hidden" name="month" th:value="${cal.month()}">
+                                <input type="hidden" name="who" th:value="${who}">
+                                <button type="submit" th:aria-label="|${s.member.displayName} 근무 지우기|"
+                                        data-confirm="이 근무를 지울까요?" data-confirm-ok="지우기" data-danger>×</button>
+                            </form>
+                        </span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>보고서</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><b>보고서</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">보고서</h1>
+            <p class="page-sub">양식을 골라 작성하면 결재선 순서대로 검토돼요</p>
+        </div>
+        <div class="actions"><a th:href="@{/approvals}" class="btn soft">결재함 <span class="badge" th:text="${inboxCount}">1</span></a></div>
+    </div>
+
+    <div class="stack" style="gap:10px">
+        <div class="chips" aria-label="분류">
+            <a class="filter-chip" th:href="@{/report}" th:classappend="${category == null and tag == null} ? 'active'">전체</a>
+            <a class="filter-chip" th:each="c : ${categories}" th:href="@{/report(category=${c})}"
+               th:classappend="${category == c} ? 'active'" th:text="${c.label}">팀별</a>
+        </div>
+        <div class="chips" th:unless="${#sets.isEmpty(tags)}" aria-label="해시태그">
+            <a class="filter-chip" th:each="t : ${tags}" th:href="@{/report(tag=${t})}"
+               th:classappend="${tag == t} ? 'active'" th:text="${t}">#주간보고</a>
+        </div>
+    </div>
+
+    <div class="split">
+        <section class="card" aria-labelledby="forms-title">
+            <div class="card-head"><h2 id="forms-title">작성할 수 있는 양식</h2><span class="meta" th:text="|${#lists.size(forms)}개|">2개</span></div>
+            <div th:if="${#lists.isEmpty(forms)}" class="empty-sm">쓸 수 있는 양식이 없어요.</div>
+            <div class="list">
+                <div class="list-item" th:each="f : ${forms}">
+                    <div class="body">
+                        <b th:text="${f.title}">주간 업무 보고</b>
+                        <small th:text="|${f.category?.label} · ${f.scheduleText != null ? f.scheduleText : f.cycle?.label} · 결재 ${f.approvalLineText}|">팀별 · 매주 월요일</small>
+                        <span class="chips" style="margin-top:6px" th:unless="${#lists.isEmpty(f.tagList)}"><span class="chip outline" th:each="t : ${f.tagList}" th:text="${t}">#주간보고</span></span>
+                    </div>
+                    <a th:href="@{|/report/write/${f.id}|}" class="btn sm primary">작성</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="mine-title">
+            <div class="card-head"><h2 id="mine-title">내 보고서</h2></div>
+            <div th:if="${#lists.isEmpty(myReports)}" class="empty-sm">아직 낸 보고서가 없어요.</div>
+            <div class="list">
+                <a th:each="r : ${myReports}" class="list-item" th:href="@{|/report/${r.id}|}">
+                    <span class="body">
+                        <b th:text="${r.form.title}">주간 업무 보고</b>
+                        <small th:text="|${#temporals.format(r.submittedAt, 'yyyy.M.d HH:mm')}${r.approvals.isEmpty() ? '' : ' · ' + r.currentStep + '/' + r.approvals.size() + '단계'}|">2026.11.17</small>
+                    </span>
+                    <span th:replace="~{fragments/ui :: chip(${r.status.name()}, ${r.status.label})}"></span>
+                </a>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

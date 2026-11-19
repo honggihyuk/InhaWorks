@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>권한 없음</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>InhaWorks</span><span class="sep">›</span><b>권한 없음</b></nav>
+<main layout:fragment="content" class="content narrow">
+    <section class="card empty" role="alert">
+        <b>볼 수 있는 권한이 없어요</b>
+        <span>관리자 화면은 관리자 계정으로 로그인해야 해요.</span>
+        <div class="row" style="justify-content:center;margin-top:20px"><a th:href="@{/}" class="btn primary">홈으로</a></div>
+    </section>
+</main>
+</body>
+</html>

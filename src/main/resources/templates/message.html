@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>안내</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>InhaWorks</span><span class="sep">›</span><b>안내</b></nav>
+
+<!-- 업무 오류 안내 (GlobalExceptionHandler) -->
+<main layout:fragment="content" class="content narrow">
+    <section class="card empty" role="alert">
+        <b>처리할 수 없어요</b>
+        <span th:text="${message}">이미 처리된 할 일이에요.</span>
+        <div class="row" style="justify-content:center;margin-top:20px">
+            <a href="javascript:history.back()" class="btn">뒤로</a>
+            <a th:href="@{/}" class="btn primary">홈으로</a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

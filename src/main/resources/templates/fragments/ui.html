@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- 공통 화면 조각
+     icon(name)            : 선 아이콘 (svg)
+     avatar(m, size)       : 프로필 동그라미
+     chip(code, label)     : 상태 칩 (상태 이름으로 색을 고른다)
+     comments(list, action): 댓글 목록 + 쓰기 (@아이디 멘션 → 알림)
+     input(...) / view(...): 할 일·보고서 항목 입력칸 / 낸 답 보기 (입력 이름은 기존과 같다 : item_ field_ file_ sig_) -->
+
+<th:block th:fragment="icon(name)" th:switch="${name}">
+    <svg th:case="'home'" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/></svg>
+    <svg th:case="'grid'" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>
+    <svg th:case="'check'" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12 3 3 5-6"/></svg>
+    <svg th:case="'doc'" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>
+    <svg th:case="'inbox'" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 13.5 6 5h12l2.5 8.5V19h-17z"/><path d="M3.5 13.5H9l1 2h4l1-2h5.5"/></svg>
+    <svg th:case="'board'" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>
+    <svg th:case="'clock'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+    <svg th:case="'pulse'" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>
+    <svg th:case="'users'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6M18 14.8c1.9.8 3.1 2.6 3.5 5.2"/></svg>
+    <svg th:case="'bell'" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg>
+    <svg th:case="'logout'" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5"/><path d="M14 8l4 4-4 4M18 12H9"/></svg>
+    <svg th:case="'more'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></svg>
+    <svg th:case="'user'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20.5c.8-4 4-6 8-6s7.2 2 8 6"/></svg>
+    <svg th:case="*" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/></svg>
+</th:block>
+
+<th:block th:fragment="avatar(m, size)">
+    <img th:if="${m != null and m.photoPath != null}" th:src="${m.photoPath}" th:class="|avatar ${size}|" alt="">
+    <span th:if="${m != null and m.photoPath == null}" th:class="|avatar ${size}|" th:text="${m.initials}" aria-hidden="true">기혁</span>
+</th:block>
+
+<!-- 상태 칩 : 통과·완료 = 파랑 채움, 재작업·반려·DEAD·실패·미해결 = 빨강, 미완료·대기·취소 = 회색, 나머지(검토중 등) = 연파랑 -->
+<span th:fragment="chip(code, label)"
+      th:with="c=${code == null ? '' : '' + code}"
+      th:class="|chip ${c == 'APPROVED' or c == 'RESOLVED' or c == 'COMPLETED' or c == 'DONE' ? 'solid'
+                : (c == 'REWORK' or c == 'REJECTED' or c == 'DEAD' or c == 'FAILED' or c == 'OPEN' ? 'red'
+                : (c == 'NOT_SUBMITTED' or c == 'CANCELED' or c == 'WAITING' or c == 'PENDING' ? 'grey' : 'blue'))}|"
+      th:text="${label}">상태</span>
+
+<section th:fragment="comments(comments, action)" id="comments" class="card">
+    <div class="card-head"><h2>댓글 <span class="muted" th:text="${#lists.size(comments)}">0</span></h2><span class="meta">@아이디 로 멘션하면 알림이 가요</span></div>
+    <div class="comments">
+        <div th:if="${#lists.isEmpty(comments)}" class="empty-sm">아직 댓글이 없어요.</div>
+        <div class="comment" th:each="c : ${comments}">
+            <span th:replace="~{fragments/ui :: avatar(${c.author}, 'sm')}"></span>
+            <div class="c-body">
+                <span class="c-who" th:text="${c.author != null ? c.author.displayName : '알 수 없음'}">김민수</span>
+                <span class="c-when" th:text="${#temporals.format(c.created, 'M.d HH:mm')}">11.19 10:20</span>
+                <div class="c-text" th:text="${c.content}">내용</div>
+            </div>
+        </div>
+        <form th:action="${action}" method="post" class="c-form">
+            <label class="sr-only" th:for="|cmt-input|">댓글</label>
+            <input th:id="|cmt-input|" type="text" name="content" class="input" maxlength="1000" placeholder="댓글 쓰기 (@아이디 로 멘션)" required>
+            <button type="submit" class="btn soft">등록</button>
+        </form>
+    </div>
+</section>
+
+<!-- 항목 입력 (kind : YES_NO, CHECKBOX, PHOTO, IMAGE, SIGNATURE, CHOICE, TEXT, FILE) -->
+<th:block th:fragment="answerInput(kind, fid, prefix, options, ans)">
+    <div th:if="${kind == 'YES_NO'}" class="yn" role="radiogroup">
+        <label><input type="radio" th:name="|${prefix}${fid}|" value="Y" th:checked="${ans != null and ans.value == 'Y'}"><span>예</span></label>
+        <label><input type="radio" th:name="|${prefix}${fid}|" value="N" th:checked="${ans != null and ans.value == 'N'}"><span>아니오</span></label>
+    </div>
+
+    <label th:if="${kind == 'CHECKBOX'}" class="round-check">
+        <input type="checkbox" th:name="|${prefix}${fid}|" value="Y" th:checked="${ans != null and ans.value == 'Y'}">확인했어요
+    </label>
+
+    <div th:if="${kind == 'CHOICE'}" class="toggle-chips" role="radiogroup">
+        <label th:each="o : ${options}">
+            <input type="radio" th:name="|${prefix}${fid}|" th:value="${o}" th:checked="${ans != null and ans.value == o}">
+            <span th:text="${o}">상</span>
+        </label>
+    </div>
+
+    <textarea th:if="${kind == 'TEXT'}" th:name="|${prefix}${fid}|" class="textarea" maxlength="2000"
+              placeholder="내용을 입력하세요" th:text="${ans != null ? ans.value : ''}"></textarea>
+
+    <div th:if="${kind == 'PHOTO' or kind == 'IMAGE'}" class="photo-pick">
+        <label class="drop">
+            <img th:if="${ans != null and ans.hasFile()}" th:src="${ans.file.path}" alt="">
+            <span>＋ 사진</span>
+            <input type="file" th:name="|file_${fid}|" accept="image/*" capture="environment">
+        </label>
+        <small class="muted" th:text="${ans != null and ans.hasFile()} ? '새 사진을 고르면 바뀌어요' : '눌러서 촬영하거나 고르세요'">사진</small>
+    </div>
+
+    <div th:if="${kind == 'FILE'}" class="field">
+        <input type="file" th:name="|file_${fid}|" class="input file-input">
+        <small class="muted">pdf, 오피스, hwp, 이미지, zip (10MB 이하)</small>
+    </div>
+
+    <div th:if="${kind == 'SIGNATURE'}" class="sig-wrap">
+        <img th:if="${ans != null and ans.hasFile()}" th:src="${ans.file.path}" class="answer-img" alt="지난 서명">
+        <canvas class="sig-pad" th:data-target="|sig_${fid}|" aria-label="서명 패드"></canvas>
+        <input type="hidden" th:name="|sig_${fid}|" value="">
+        <div><button type="button" class="btn sm ghost" data-sig-clear>서명 지우기</button></div>
+    </div>
+</th:block>
+
+<!-- 낸 답 보기 -->
+<th:block th:fragment="answerView(kind, ans)">
+    <div th:if="${ans == null or (ans.value == null and !ans.hasFile())}" class="answer none">-</div>
+    <th:block th:if="${ans != null}">
+        <img th:if="${ans.hasFile() and ans.file.image}" th:src="${ans.file.path}" class="answer-img" alt="">
+        <ul th:if="${ans.hasFile() and !ans.file.image}" class="files">
+            <li><a th:href="${ans.file.path}" th:text="|📎 ${ans.file.originalName}|" download>파일</a></li>
+        </ul>
+        <div th:if="${ans.value != null}" class="answer">
+            <span th:if="${ans.value == 'Y'}" class="chip blue" th:text="${kind == 'CHECKBOX'} ? '✓ 확인' : '예'">예</span>
+            <span th:if="${ans.value == 'N'}" class="chip grey">아니오</span>
+            <span th:unless="${ans.value == 'Y' or ans.value == 'N'}" class="pre" th:text="${#strings.replace(ans.value, '|', ', ')}">값</span>
+        </div>
+    </th:block>
+</th:block>
+</html>

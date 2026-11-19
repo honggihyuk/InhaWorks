@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>출퇴근</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>출퇴근</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub" th:text="${#temporals.format(now, 'yyyy년 M월 d일 EEEE')}">2026년 11월 19일 목요일</p>
+        </div>
+    </div>
+    <div th:replace="~{attendance/tabs :: tabs('attendance')}"></div>
+
+    <section class="card clock-card" aria-label="출퇴근">
+        <div>
+            <div class="muted" style="font-weight:600;margin-bottom:6px">지금</div>
+            <div class="big-time"><span data-clock>09:00</span><span class="muted" style="font-size:28px" data-clock-sec>:00</span></div>
+            <div class="clock-meta">
+                <div>출근<b th:text="${today != null ? #temporals.format(today.clockIn, 'HH:mm:ss') : '-'}">09:01:12</b></div>
+                <div>퇴근<b th:text="${today != null and today.clockOut != null ? #temporals.format(today.clockOut, 'HH:mm:ss') : '-'}">-</b></div>
+            </div>
+        </div>
+        <div>
+            <!-- data-once : 두 번 누르기 방지 (서버도 하루 한 줄 unique 로 막는다) -->
+            <form th:action="@{/attendance/in}" method="post" class="inline" data-once th:if="${today == null}">
+                <button type="submit" class="btn primary lg">출근하기</button>
+            </form>
+            <form th:action="@{/attendance/out}" method="post" class="inline" data-once th:if="${today != null}">
+                <button type="submit" class="btn lg" th:classappend="${today.clockOut == null} ? 'dark'"
+                        th:text="${today.clockOut == null} ? '퇴근하기' : '퇴근 시각 다시 찍기'">퇴근하기</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="card flush" aria-labelledby="recent-title">
+        <div class="card-head"><h2 id="recent-title">최근 한 달 기록</h2></div>
+        <div th:if="${#lists.isEmpty(recent)}" class="empty-sm" style="padding:18px 22px">기록이 없어요.</div>
+        <div class="table-box" th:unless="${#lists.isEmpty(recent)}" style="margin-top:8px">
+            <table class="t">
+                <thead><tr><th>날짜</th><th>출근</th><th>퇴근</th><th>근무 시간</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${recent}">
+                    <td class="tnum" th:text="${#temporals.format(r.workDate, 'M.d (E)')}">11.19 (목)</td>
+                    <td class="tnum" th:text="${#temporals.format(r.clockIn, 'HH:mm')}">09:01</td>
+                    <td class="tnum" th:text="${r.clockOut != null ? #temporals.format(r.clockOut, 'HH:mm') : '-'}">18:02</td>
+                    <td class="tnum" th:text="${r.workedText}">9시간 1분</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

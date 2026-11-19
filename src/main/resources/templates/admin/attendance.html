@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>출퇴근 현황</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>출퇴근 현황</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub" th:text="${#temporals.format(date, 'yyyy년 M월 d일 EEEE')}">2026년 11월 19일 목요일</p>
+        </div>
+        <form th:action="@{/admin/attendance}" method="get" class="row" style="gap:6px">
+            <label class="sr-only" for="date">날짜</label>
+            <input id="date" type="date" name="date" th:value="${date}" class="input" style="width:170px">
+            <button type="submit" class="btn">보기</button>
+        </form>
+    </div>
+
+    <div th:replace="~{admin/attendance-tabs :: tabs('attendance')}"></div>
+
+    <section class="grid grid-3" aria-label="요약">
+        <div class="card kpi"><span class="label">출근</span><span class="value blue"><th:block th:text="${#lists.size(records)}">3</th:block><small>명</small></span></div>
+        <div class="card kpi"><span class="label">재직</span><span class="value"><th:block th:text="${memberCount}">5</th:block><small>명</small></span></div>
+        <div class="card kpi"><span class="label">퇴근 전</span><span class="value"><th:block th:text="${#lists.size(records.?[clockOut == null])}">1</th:block><small>명</small></span></div>
+    </section>
+
+    <section class="card flush">
+        <div th:if="${#lists.isEmpty(records)}" class="empty"><b>출근 기록이 없어요</b></div>
+        <div class="table-box" th:unless="${#lists.isEmpty(records)}">
+            <table class="t">
+                <thead><tr><th>직원</th><th>팀 · 근무지</th><th>출근</th><th>퇴근</th><th>근무 시간</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${records}">
+                    <td><span class="person"><span th:replace="~{fragments/ui :: avatar(${r.member}, 'sm')}"></span><span th:text="${r.member.displayName}">이서연</span></span></td>
+                    <td class="muted" th:text="${r.member.subtitle}">영업팀 · 인하점</td>
+                    <td class="tnum" th:text="${#temporals.format(r.clockIn, 'HH:mm')}">09:01</td>
+                    <td class="tnum"><span th:if="${r.clockOut != null}" th:text="${#temporals.format(r.clockOut, 'HH:mm')}">18:00</span>
+                        <span th:if="${r.clockOut == null}" class="chip blue">근무 중</span></td>
+                    <td class="tnum" th:text="${r.workedText}">9시간</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

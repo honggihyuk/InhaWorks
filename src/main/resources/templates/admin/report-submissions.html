@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${form.title}">제출 내역</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/report}">보고서</a><span class="sep">›</span><b th:text="${form.title}">양식</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <div class="eyebrow" th:text="|${form.category?.label} · ${form.writerText} · ${form.scheduleText != null ? form.scheduleText : form.cycle?.label}|">팀별 · 영업팀 · 매주 월요일</div>
+            <h1 class="page-title" th:text="${form.title}">주간 업무 보고</h1>
+            <p class="page-sub" th:text="|결재선 ${form.approvalLineText}|">결재선 김민수 → 관리자</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{|/admin/report/${form.id}/edit|}" class="btn">양식 수정</a>
+            <th:block th:if="${bulkDownloadEnabled}">
+            <a th:href="@{|/admin/report/${form.id}/excel|}" class="btn primary">엑셀 다운로드</a>
+            <a th:href="@{|/admin/report/${form.id}/files.zip|}" class="btn">첨부 zip</a>
+            </th:block>
+        </div>
+        <span th:unless="${bulkDownloadEnabled}" class="chip grey">일괄 다운로드 꺼짐 (app.security.bulk-download-enabled)</span>
+    </div>
+
+    <section class="grid grid-3" aria-label="요약">
+        <div class="card kpi"><span class="label">제출</span><span class="value blue"><th:block th:text="${#lists.size(reports)}">3</th:block><small>건</small></span></div>
+        <div class="card kpi"><span class="label">항목</span><span class="value"><th:block th:text="${#lists.size(form.activeFields)}">5</th:block><small>개</small></span></div>
+        <div class="card kpi"><span class="label">결재 단계</span><span class="value"><th:block th:text="${#lists.size(form.approvers)}">2</th:block><small>단계</small></span></div>
+    </section>
+
+    <section class="card flush">
+        <div class="card-head"><h2>제출 현황</h2></div>
+        <div th:if="${#lists.isEmpty(reports)}" class="empty"><b>아직 제출된 보고서가 없어요</b></div>
+        <div class="table-box" th:unless="${#lists.isEmpty(reports)}">
+            <table class="t">
+                <thead><tr><th>#</th><th>작성자</th><th>제출</th><th>상태</th><th>결재 단계</th><th class="right"></th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${reports}">
+                    <td class="muted tnum" th:text="${r.id}">1</td>
+                    <td><span class="person"><span th:replace="~{fragments/ui :: avatar(${r.author}, 'sm')}"></span><span th:text="${r.author.displayName}">이서연</span></span></td>
+                    <td class="tnum" th:text="${#temporals.format(r.submittedAt, 'yyyy.M.d HH:mm')}">2026.11.17</td>
+                    <td><span th:replace="~{fragments/ui :: chip(${r.status.name()}, ${r.status.label})}"></span></td>
+                    <td class="tnum" th:text="${r.approvals.isEmpty() ? '-' : r.currentStep + ' / ' + r.approvals.size()}">1 / 2</td>
+                    <td class="right"><a th:href="@{|/report/${r.id}|}" class="btn sm">보기</a></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

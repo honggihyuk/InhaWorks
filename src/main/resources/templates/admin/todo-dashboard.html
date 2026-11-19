@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${board.task().title}">할 일 상세</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치">
+    <span>관리자</span><span class="sep">›</span><a th:href="@{/admin/todo}">할 일</a><span class="sep">›</span><b>직원별 현황</b>
+</nav>
+
+<main layout:fragment="content" class="content" th:with="t=${board.task()}">
+    <div class="page-header">
+        <div>
+            <div class="eyebrow" th:text="|${t.cycleText} · ${t.targetText}${t.reviewer != null ? ' · 검수 ' + t.reviewer.displayName : ''}|">매일 · 인하점 · 검수 김민수</div>
+            <h1 class="page-title" th:text="${t.title}">매장 오픈 체크리스트</h1>
+        </div>
+        <div class="actions">
+            <a th:href="@{|/admin/todo/${t.id}/edit|}" class="btn">수정</a>
+            <form th:action="@{|/admin/todo/${t.id}/delete|}" method="post" class="inline">
+                <button type="submit" class="btn danger" th:attr="data-confirm=|‘${t.title}’ 할 일을 삭제할까요?|"
+                        data-confirm-body="목록과 자동 배정에서 빠지고, 오늘부터 아직 제출하지 않은 배정도 함께 지워져요. 지난 제출·검수 기록은 남아요."
+                        data-confirm-ok="삭제" data-danger>삭제</button>
+            </form>
+            <form th:action="@{|/admin/todo/${t.id}|}" method="get" class="row" style="gap:6px">
+                <label class="sr-only" for="date">날짜</label>
+                <input id="date" type="date" name="date" th:value="${board.date()}" class="input" style="width:170px">
+                <button type="submit" class="btn">보기</button>
+            </form>
+            <!-- 푸시 : remindToken 이 멱등성 키에 들어가서 두 번 눌러도 사람마다 한 번만 알림 -->
+            <form th:action="@{|/admin/todo/${t.id}/remind|}" method="post" class="inline" data-once>
+                <input type="hidden" name="date" th:value="${board.date()}">
+                <input type="hidden" name="token" th:value="${remindToken}">
+                <button type="submit" class="btn primary" th:disabled="${board.incomplete() == 0}"
+                        data-confirm="미완료 직원에게 푸시를 보낼까요?"
+                        th:attr="data-confirm-body=|${board.incomplete()}명에게 다시 알림이 가요. 이미 보낸 사람에게는 다시 가지 않아요.|"
+                        data-confirm-ok="푸시 보내기"
+                        th:text="|미완료 ${board.incomplete()}명에게 푸시|">미완료 2명에게 푸시</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="split wide-right">
+        <!-- 왼쪽 : 오늘 결과 + 가이드 -->
+        <div class="stack">
+            <section class="card" aria-labelledby="result-title">
+                <div class="card-head"><h2 id="result-title" th:text="${board.date() == #temporals.createToday()} ? '오늘 결과' : |${#temporals.format(board.date(), 'M월 d일')} 결과|">오늘 결과</h2>
+                    <span class="meta tnum" th:text="|완료율 ${board.rate()}%|">완료율 60%</span></div>
+                <div class="grid grid-3">
+                    <div class="kpi"><span class="label">총 배정</span><span class="value"><th:block th:text="${board.total()}">5</th:block><small>명</small></span></div>
+                    <div class="kpi"><span class="label">미완료</span><span class="value" th:classappend="${board.incomplete() > 0} ? 'red'"><th:block th:text="${board.incomplete()}">2</th:block><small>명</small></span></div>
+                    <div class="kpi"><span class="label">완료</span><span class="value blue"><th:block th:text="${board.done()}">3</th:block><small>명</small></span></div>
+                </div>
+                <div class="bar key" style="margin-top:16px" role="progressbar" aria-label="완료율" aria-valuemin="0" aria-valuemax="100" th:aria-valuenow="${board.rate()}">
+                    <span th:style="|width: ${board.rate()}%|"></span></div>
+                <div class="chips" style="margin-top:14px">
+                    <span class="chip outline" th:each="e : ${board.counts()}" th:text="|${e.key.label} ${e.value}|">제출 미완료 1</span>
+                </div>
+            </section>
+
+            <section class="card" aria-labelledby="guide-title">
+                <div class="card-head"><h2 id="guide-title">작업 가이드</h2></div>
+                <div class="stack" style="gap:14px">
+                    <div th:if="${t.guide != null and !#strings.isEmpty(t.guide)}" class="guide pre" th:text="${t.guide}">가이드</div>
+                    <div th:if="${t.guide == null or #strings.isEmpty(t.guide)}" class="empty-sm">가이드가 없어요.</div>
+                    <div th:unless="${#lists.isEmpty(t.guideFiles)}">
+                        <div class="label" style="margin-bottom:8px">첨부</div>
+                        <ul class="files"><li th:each="f : ${t.guideFiles}"><a th:href="${f.path}" th:text="|📎 ${f.originalName}|" download>가이드.pdf</a></li></ul>
+                    </div>
+                    <div th:unless="${#lists.isEmpty(t.activeItems)}">
+                        <div class="label" style="margin-bottom:8px">항목</div>
+                        <div class="chips"><span class="chip blue" th:each="it : ${t.activeItems}" th:text="|${it.type.label} · ${it.label}|">예/아니오 · 출입문</span></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 오른쪽 : 직원별 현황 -->
+        <section class="card" aria-labelledby="people-title">
+            <div class="card-head"><h2 id="people-title">직원별 현황</h2><span class="meta" th:text="|${#lists.size(board.assignments())}명|">5명</span></div>
+            <div th:if="${#lists.isEmpty(board.assignments())}" class="empty">
+                <b>이 날짜에는 배정된 직원이 없어요</b>
+                <span>반복 규칙에 해당하지 않는 날이거나, 아직 배치가 돌지 않았어요 (재처리 모니터에서 확인)</span>
+            </div>
+            <div class="list">
+                <div class="list-item" th:each="a : ${board.assignments()}">
+                    <span th:replace="~{fragments/ui :: avatar(${a.member}, '')}"></span>
+                    <a class="body" th:href="@{|/todo/${a.id}|}">
+                        <b th:text="${a.member.displayName}">이서연</b>
+                        <small th:text="|${a.member.workplace != null ? a.member.workplace.name : '-'} · ${a.submittedAt != null ? '제출 ' + #temporals.format(a.submittedAt, 'HH:mm') : '미제출'}${a.reworkReason != null ? ' · 사유: ' + a.reworkReason : ''}|">인하점 · 제출 09:20</small>
+                    </a>
+                    <span th:replace="~{fragments/ui :: chip(${a.status.name()}, ${a.status.label})}"></span>
+                    <!-- 검수 대기중일 때 : 이 자리에서 바로 검수 -->
+                    <th:block th:if="${a.status.name() == 'PENDING_REVIEW'}">
+                        <form th:action="@{|/todo/${a.id}/review|}" method="post" class="inline" data-async="재작업을 요청했어요.">
+                            <input type="hidden" name="decision" value="rework">
+                            <button type="submit" class="btn sm danger"
+                                    data-confirm="재작업을 요청할까요?" th:attr="data-confirm-body=|${a.member.displayName} 님에게 사유와 함께 알림이 가요.|"
+                                    data-confirm-ok="재작업 요청" data-danger data-reason="reason" data-reason-label="재작업 요청 사유 (필수)">재작업 요청</button>
+                        </form>
+                        <form th:action="@{|/todo/${a.id}/review|}" method="post" class="inline" data-async="검수 통과로 처리했어요."
+                              th:attr="data-undo=@{|/todo/${a.id}/review/undo|}">
+                            <input type="hidden" name="decision" value="approve">
+                            <button type="submit" class="btn sm primary">검수 통과</button>
+                        </form>
+                    </th:block>
+                    <a th:unless="${a.status.name() == 'PENDING_REVIEW'}" class="btn sm ghost" th:href="@{|/todo/${a.id}|}">보기</a>
+                </div>
+            </div>
+            <p class="muted small" style="margin-top:14px" th:unless="${#lists.isEmpty(board.assignments())}">직원 한 명의 제출에 대한 댓글은 ‘보기’ 화면에서 남겨요.</p>
+        </section>
+    </div>
+
+    <!-- 할 일 단위 댓글 : 이 할 일 전체에 대한 이야기 (@아이디 로 멘션하면 알림) -->
+    <div th:replace="~{fragments/ui :: comments(${taskComments}, @{|/admin/todo/${t.id}/comment|})}"></div>
+</main>
+</body>
+</html>

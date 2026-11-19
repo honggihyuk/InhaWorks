@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${a.task.title}">할 일</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치">
+    <span sec:authorize="hasRole('ADMIN')">관리자</span><span sec:authorize="!hasRole('ADMIN')">우리 회사</span><span class="sep">›</span>
+    <a th:href="@{/todo}">할 일</a><span class="sep">›</span><b th:text="${a.task.title}">할 일</b>
+</nav>
+
+<main layout:fragment="content" class="content narrow">
+    <div data-md-content class="stack" style="gap:20px" th:with="t=${a.task}">
+        <div class="task-form">
+            <div class="task-form-head">
+                <small th:text="|${#temporals.format(a.workDate, 'M월 d일 (E)')} · ${t.cycleText} · 담당 ${a.member.displayName}${t.reviewer != null ? ' · 검수 ' + t.reviewer.displayName : ''}|">11월 19일 · 매일</small>
+                <h2 th:text="${t.title}">매장 오픈 체크리스트</h2>
+                <div style="margin-top:8px"><span class="chip" style="background:rgba(255,255,255,.18);color:#fff" th:text="${a.status.label}">제출 미완료</span></div>
+            </div>
+            <div class="task-form-body">
+                <div th:if="${a.status.name() == 'REWORK'}" class="banner-red" style="margin-top:16px" role="alert">
+                    <b>재작업 요청</b> · <span th:text="${a.reworkReason}">사진이 흐려요</span>
+                    <small th:if="${a.reviewedBy != null}" th:text="|${a.reviewedBy.displayName} · ${#temporals.format(a.reviewedAt, 'M.d HH:mm')}|">김민수</small>
+                </div>
+                <div th:if="${t.guide != null and !#strings.isEmpty(t.guide)}" class="guide" style="margin-top:16px">
+                    <span class="label">작업 가이드</span><span th:text="${t.guide}">가이드</span></div>
+                <ul class="files" th:unless="${#lists.isEmpty(t.guideFiles)}">
+                    <li th:each="f : ${t.guideFiles}"><a th:href="${f.path}" th:text="|📎 ${f.originalName}|" download>가이드.pdf</a></li>
+                </ul>
+
+                <!-- 제출 (담당자, 제출 미완료 / 재작업 필요) : 입력 이름 item_ / file_ / sig_ + submitToken (중복 제출 방지) -->
+                <form th:if="${canSubmit}" th:action="@{|/todo/${a.id}/submit|}" method="post" enctype="multipart/form-data" data-once>
+                    <input type="hidden" name="submitToken" th:value="${submitToken}">
+                    <div class="q-card" th:each="it : ${t.activeItems}">
+                        <div class="q"><span th:text="${it.label}">질문</span><span class="req" th:if="${it.required}" aria-label="필수">*</span>
+                            <span class="chip outline" th:text="${it.type.label}">예/아니오</span></div>
+                        <th:block th:replace="~{fragments/ui :: answerInput(${it.type.name()}, ${it.id}, 'item_', ${it.optionList}, ${a.getAnswer(it.id)})}"></th:block>
+                    </div>
+                    <button type="submit" class="btn primary lg block" style="margin-top:8px"
+                            th:text="${a.status.name() == 'REWORK'} ? '다시 제출하기' : '제출하기'">제출하기</button>
+                </form>
+
+                <!-- 낸 답 보기 -->
+                <th:block th:unless="${canSubmit}">
+                    <div class="q-card" th:each="it : ${t.items}" th:if="${!it.archived or a.getAnswer(it.id) != null}">
+                        <div class="q"><span th:text="${it.label}">질문</span> <span class="chip outline" th:text="${it.type.label}">예/아니오</span></div>
+                        <th:block th:replace="~{fragments/ui :: answerView(${it.type.name()}, ${a.getAnswer(it.id)})}"></th:block>
+                    </div>
+                    <p class="muted small" th:if="${a.submittedAt != null}"
+                       th:text="|제출 ${#temporals.format(a.submittedAt, 'M.d HH:mm')} · ${a.submitCount}번째 제출|">제출 11.19 09:20</p>
+                </th:block>
+            </div>
+        </div>
+
+        <!-- 검수 통과 실행 취소 (검수한 사람 · 10분 안) -->
+        <section th:if="${canUndoReview}" class="card soft row" style="justify-content:space-between" aria-label="검수 통과 취소">
+            <span>검수 통과로 처리했어요. 잘못 눌렀다면 10분 안에 되돌릴 수 있어요.</span>
+            <form th:action="@{|/todo/${a.id}/review/undo|}" method="post" class="inline" data-once>
+                <button type="submit" class="btn">검수 통과 취소</button>
+            </form>
+        </section>
+
+        <!-- 검수 (검수자 / 관리자, 검수 대기중) -->
+        <section th:if="${canReview}" class="card soft" aria-labelledby="review-title">
+            <div class="card-head"><h2 id="review-title">검수하기</h2><span class="meta">결과가 직원에게 알림으로 가요</span></div>
+            <div class="row">
+                <form th:action="@{|/todo/${a.id}/review|}" method="post" class="inline" data-once>
+                    <input type="hidden" name="decision" value="rework">
+                    <button type="submit" class="btn danger" data-confirm="재작업을 요청할까요?"
+                            th:attr="data-confirm-body=|${a.member.displayName} 님에게 사유와 함께 알림이 가요.|"
+                            data-confirm-ok="재작업 요청" data-danger data-reason="reason" data-reason-label="재작업 요청 사유 (필수)">재작업 요청</button>
+                </form>
+                <form th:action="@{|/todo/${a.id}/review|}" method="post" class="inline" data-once>
+                    <input type="hidden" name="decision" value="approve">
+                    <button type="submit" class="btn primary">검수 통과</button>
+                </form>
+            </div>
+        </section>
+
+        <div th:replace="~{fragments/ui :: comments(${comments}, @{|/todo/${a.id}/comment|})}"></div>
+    </div>
+</main>
+</body>
+</html>

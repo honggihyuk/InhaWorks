@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>월별 스케줄</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>월별 스케줄</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub" th:text="|${#temporals.format(cal.month().atDay(1), 'yyyy년 M월')} · 근무 ${cal.total()}일|">2026년 11월</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{/schedule/month(month=${cal.prev()})}" class="btn">‹ 지난달</a>
+            <a th:href="@{/schedule/month}" class="btn">이번 달</a>
+            <a th:href="@{/schedule/month(month=${cal.next()})}" class="btn">다음 달 ›</a>
+        </div>
+    </div>
+
+    <div class="row" style="justify-content:space-between">
+        <div th:replace="~{attendance/tabs :: tabs('schedule')}"></div>
+        <nav class="segmented" aria-label="보기">
+            <a th:href="@{/schedule(week=${cal.month().atDay(1)})}">주별</a>
+            <a th:href="@{/schedule/month(month=${cal.month()})}" class="active" aria-current="page">월별</a>
+        </nav>
+    </div>
+
+    <section class="card flush">
+        <div class="table-box">
+            <table class="month-cal">
+                <thead><tr><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th><th>일</th></tr></thead>
+                <tbody>
+                <tr th:each="week : ${cal.weeks()}">
+                    <td th:each="d : ${week}" th:classappend="|${d.inMonth() ? '' : 'out'} ${d.today() ? 'today' : ''}|"
+                        th:attr="aria-current=${d.today()} ? 'date'">
+                        <div class="dnum"><span th:text="${d.date().dayOfMonth}">1</span></div>
+                        <span class="shift" th:each="s : ${d.schedules()}"
+                              th:text="|${#temporals.format(s.startTime, 'HH:mm')}–${#temporals.format(s.endTime, 'HH:mm')}${s.memo != null ? ' ' + s.memo : ''}|">09:00–18:00</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

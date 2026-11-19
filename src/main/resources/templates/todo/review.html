@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>검수 대기함</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치">
+    <span sec:authorize="hasRole('ADMIN')">관리자</span><span sec:authorize="!hasRole('ADMIN')">우리 회사</span><span class="sep">›</span>
+    <a th:href="@{/todo}" sec:authorize="!hasRole('ADMIN')">할 일</a><a th:href="@{/admin/todo}" sec:authorize="hasRole('ADMIN')">할 일</a>
+    <span class="sep">›</span><b>검수 대기함</b>
+</nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">검수 대기함</h1>
+            <p class="page-sub" th:text="|검수 대기중 ${#lists.size(queue)}건 · 고르면 옆에서 바로 검수할 수 있어요|">검수 대기중</p>
+        </div>
+    </div>
+
+    <div class="split left-list" data-md>
+        <section class="card">
+            <div th:if="${#lists.isEmpty(queue)}" class="empty"><b>검수할 할 일이 없어요</b></div>
+            <div class="list">
+                <a th:each="a : ${queue}" class="list-item selectable" data-md-item th:href="@{|/todo/${a.id}|}">
+                    <span th:replace="~{fragments/ui :: avatar(${a.member}, '')}"></span>
+                    <span class="body">
+                        <b th:text="${a.task.title}">매장 오픈 체크리스트</b>
+                        <small th:text="|${a.member.displayName} · ${#temporals.format(a.workDate, 'M월 d일 (E)')} · 제출 ${#temporals.format(a.submittedAt, 'HH:mm')}|">이서연</small>
+                    </span>
+                    <span th:replace="~{fragments/ui :: chip(${a.status.name()}, ${a.status.label})}"></span>
+                </a>
+            </div>
+        </section>
+        <div data-md-pane aria-live="polite">
+            <div class="card empty" th:unless="${#lists.isEmpty(queue)}"><b>검수할 항목을 고르세요</b></div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>재처리 모니터</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>관리</span><span class="sep">›</span><b>재처리 모니터</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">재처리 모니터</h1>
+            <p class="page-sub">실패한 후처리(Outbox)와 배치를 확인하고 다시 처리해요</p>
+        </div>
+        <div class="actions">
+            <form th:action="@{/admin/monitor/outbox/poll}" method="post" class="inline" data-once>
+                <button type="submit" class="btn">지금 처리 (PENDING)</button>
+            </form>
+            <form th:action="@{/admin/monitor/job/catch-up}" method="post" class="inline" data-once>
+                <button type="submit" class="btn" data-confirm="누락·실패 배치를 지금 복구할까요?"
+                        data-confirm-body="최근 며칠 중 빠지거나 실패한 배치를 다시 실행해요. 생성 배치는 멱등이라 중복되지 않아요." data-confirm-ok="복구 실행">누락·실패 배치 복구</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- KPI : PENDING / PROCESSING / 오늘 DONE / DEAD -->
+    <section class="grid grid-4" aria-label="Outbox 상태">
+        <a class="card kpi" th:each="e : ${counts}" th:with="k=${e.key.name()}"
+           th:href="@{/admin/monitor(status=${k})}"
+           th:style="${k == 'DEAD' and e.value > 0} ? 'border-color:#F3C9C4;background:#FEF3F2' : ''">
+            <span class="label" th:text="|${k} · ${k == 'DONE' ? '오늘 완료' : e.key.label}|">PENDING · 대기</span>
+            <span class="value" th:classappend="${k == 'DONE'} ? 'blue' : (${k == 'DEAD' and e.value > 0} ? 'red' : '')"
+                  th:text="${k == 'DONE' ? outboxDoneToday : e.value}">0</span>
+            <span class="foot" th:if="${k == 'DONE'}" th:text="|누적 ${e.value}건|">누적 40건</span>
+            <span class="foot" th:if="${k == 'DEAD'}">재처리 하면 PENDING 으로 돌아가요</span>
+        </a>
+    </section>
+
+    <section class="card flush">
+        <div class="card-head"><h2>Outbox 이벤트</h2>
+            <div class="chips" aria-label="상태로 거르기">
+                <a class="filter-chip" th:href="@{/admin/monitor}" th:classappend="${status == null} ? 'active'">전체 (최근 100)</a>
+                <a class="filter-chip" th:each="s : ${statuses}" th:href="@{/admin/monitor(status=${s})}"
+                   th:classappend="${status == s} ? 'active'" th:text="${s.name()}">PENDING</a>
+            </div>
+        </div>
+        <div th:if="${#lists.isEmpty(events)}" class="empty-sm" style="padding:18px 22px">이벤트가 없어요.</div>
+        <div class="table-box" th:unless="${#lists.isEmpty(events)}" style="margin-top:8px">
+            <table class="t">
+                <thead><tr><th>#</th><th>종류 / 출처</th><th>상태</th><th>재시도</th><th>다음 시도</th><th>마지막 오류</th><th>만든 시각</th><th class="right"></th></tr></thead>
+                <tbody>
+                <tr th:each="ev : ${events}">
+                    <td class="mono" th:text="${ev.id}">1</td>
+                    <td>
+                        <b class="small" th:text="${ev.eventType}">NOTIFICATION</b>
+                        <span class="sub mono" th:text="|${ev.aggregateType} #${ev.aggregateId}|">TodoAssignment #3</span>
+                        <span class="sub mono" th:if="${ev.idempotencyKey != null}" th:text="${ev.idempotencyKey}">key</span>
+                    </td>
+                    <td><span th:replace="~{fragments/ui :: chip(${ev.status.name()}, ${ev.status.name()})}"></span></td>
+                    <td class="mono" th:text="|${ev.retryCount} / ${ev.maxRetries}|">0 / 5</td>
+                    <td class="mono" th:text="${ev.status.name() == 'PENDING' ? #temporals.format(ev.nextRetryAt, 'M.d HH:mm:ss') : '-'}">-</td>
+                    <td class="small" style="max-width:280px;color:#B42318" th:text="${ev.lastError}">오류</td>
+                    <td class="mono" th:text="${#temporals.format(ev.created, 'M.d HH:mm:ss')}">11.19</td>
+                    <td class="right">
+                        <form th:unless="${ev.status.name() == 'DONE' or ev.status.name() == 'PROCESSING'}"
+                              th:action="@{|/admin/monitor/outbox/${ev.id}/retry|}" method="post" class="inline">
+                            <input type="hidden" name="status" th:value="${status}">
+                            <button type="submit" class="btn sm" th:classappend="${ev.status.name() == 'DEAD'} ? 'primary'"
+                                    th:attr="data-confirm=|이벤트 #${ev.id} 을 재처리할까요?|"
+                                    data-confirm-body="PENDING 으로 되돌려 다음 주기에 다시 처리해요. 알림이 한 번 더 갈 수 있어요." data-confirm-ok="재처리">재처리</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="card flush">
+        <div class="card-head"><h2>배치 실행 기록</h2>
+            <div class="chips"><span class="chip outline" th:each="e : ${jobCounts}" th:text="|${e.key.label} ${e.value}|">완료 3</span></div>
+        </div>
+        <div th:if="${#lists.isEmpty(jobs)}" class="empty-sm" style="padding:18px 22px">실행 기록이 없어요.</div>
+        <div class="table-box" th:unless="${#lists.isEmpty(jobs)}" style="margin-top:8px">
+            <table class="t">
+                <thead><tr><th>배치</th><th>대상</th><th>상태</th><th>시도</th><th>시작 · 끝</th><th>결과 / 오류</th><th class="right"></th></tr></thead>
+                <tbody>
+                <tr th:each="j : ${jobs}">
+                    <td class="mono" th:text="${j.jobName}">TODO_ASSIGNMENT_GENERATE</td>
+                    <td class="mono" th:text="${j.jobKey}">2026-11-19</td>
+                    <td><span th:replace="~{fragments/ui :: chip(${j.status.name()}, ${j.status.label})}"></span></td>
+                    <td class="mono" th:text="${j.attempts}">1</td>
+                    <td class="mono" th:text="|${j.startedAt != null ? #temporals.format(j.startedAt, 'M.d HH:mm:ss') : '-'} · ${j.finishedAt != null ? #temporals.format(j.finishedAt, 'HH:mm:ss') : '-'}|">-</td>
+                    <td><span class="small" th:text="${j.message}">할 일 3건 생성</span>
+                        <span class="sub" style="color:#B42318" th:if="${j.lastError != null}" th:text="${j.lastError}">오류</span></td>
+                    <td class="right">
+                        <form th:action="@{|/admin/monitor/job/${j.id}/rerun|}" method="post" class="inline">
+                            <button type="submit" class="btn sm" th:classappend="${j.status.name() == 'FAILED'} ? 'primary' : 'ghost'"
+                                    data-confirm="이 배치를 다시 실행할까요?" data-confirm-body="생성 배치는 멱등이라 중복되지 않아요." data-confirm-ok="재실행">재실행</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

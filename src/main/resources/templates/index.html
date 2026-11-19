@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>홈</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><b>홈</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <div class="eyebrow" th:text="${#temporals.format(today, 'yyyy년 M월 d일 EEEE')}">2026년 11월 19일 목요일</div>
+            <h1 class="page-title"><span th:text="${loginMember.displayName}">홍기혁</span> 님, 안녕하세요</h1>
+            <p class="page-sub" th:text="${loginMember.subtitle}">영업팀 · 인하점 · 사원</p>
+        </div>
+        <div class="actions">
+            <form th:if="${attendance == null}" th:action="@{/attendance/in}" method="post" class="inline" data-once>
+                <button type="submit" class="btn primary">출근하기</button>
+            </form>
+            <form th:if="${attendance != null and attendance.clockOut == null}" th:action="@{/attendance/out}" method="post" class="inline" data-once>
+                <button type="submit" class="btn dark">퇴근하기</button>
+            </form>
+            <span th:if="${attendance != null and attendance.clockOut != null}" class="chip blue"
+                  th:text="|퇴근 ${#temporals.format(attendance.clockOut, 'HH:mm')}|">퇴근 18:02</span>
+        </div>
+    </div>
+
+    <section class="dash-top" aria-label="오늘 요약"
+             th:with="total=${#lists.size(todos)}, doneCount=${total - todoLeft}, rate=${total == 0 ? 0 : (doneCount * 100 / total)}">
+        <a class="card hero" th:href="@{/todo}">
+            <span class="label muted" style="font-weight:600">오늘 할 일</span>
+            <div class="hero-num"><th:block th:text="${todoLeft}">2</th:block><small th:text="| / ${total}건 남음|"> / 3건 남음</small></div>
+            <div class="bar hero-bar key" role="progressbar" aria-label="오늘 할 일 진행률" aria-valuemin="0" aria-valuemax="100" th:aria-valuenow="${rate}">
+                <span th:style="|width: ${rate}%|"></span></div>
+            <span class="hero-link">할 일 열기 →</span>
+        </a>
+        <a class="card kpi" th:href="@{/approvals}">
+            <span class="label">내 결재 대기</span><span class="value"><th:block th:text="${approvalWaiting}">1</th:block><small>건</small></span></a>
+        <a class="card kpi" th:href="@{/todo/review}">
+            <span class="label">검수 대기</span><span class="value"><th:block th:text="${reviewWaiting}">0</th:block><small>건</small></span></a>
+    </section>
+
+    <div class="grid grid-2">
+        <section class="card" aria-labelledby="t-title">
+            <div class="card-head"><h2 id="t-title">오늘 할 일</h2><a th:href="@{/todo}" class="link-muted">전체 보기</a></div>
+            <div th:if="${#lists.isEmpty(todos)}" class="empty-sm">오늘 배정된 할 일이 없어요.</div>
+            <div class="list">
+                <a th:each="a : ${todos}" class="list-item" th:href="@{|/todo/${a.id}|}">
+                    <span class="body"><b th:text="${a.task.title}">매장 오픈 체크리스트</b><small th:text="${a.task.cycleText}">매일</small></span>
+                    <span th:replace="~{fragments/ui :: chip(${a.status.name()}, ${a.status.label})}"></span>
+                </a>
+            </div>
+        </section>
+        <section class="card" aria-labelledby="n-title">
+            <div class="card-head"><h2 id="n-title">새 알림</h2><a th:href="@{/notifications}" class="link-muted">전체 보기</a></div>
+            <div th:if="${#lists.isEmpty(unreadTop)}" class="empty-sm">새 알림이 없어요.</div>
+            <div class="list">
+                <form th:each="n : ${unreadTop}" th:action="@{|/notifications/${n.id}/read|}" method="post" class="inline">
+                    <button type="submit" class="list-item" style="width:100%;border-left:0;border-right:0;border-top:0;background:none;text-align:left;font:inherit;cursor:pointer">
+                        <span class="chip blue" th:text="${n.type.label}">할 일</span>
+                        <span class="body"><b th:text="${n.title}">검수 통과</b><small th:text="${n.message}">내용</small></span>
+                    </button>
+                </form>
+            </div>
+        </section>
+        <section class="card" aria-labelledby="p-title">
+            <div class="card-head"><h2 id="p-title">고정 공지</h2><a th:href="@{/board}" class="link-muted">게시판</a></div>
+            <div th:if="${#lists.isEmpty(pinned)}" class="empty-sm">고정된 공지가 없어요.</div>
+            <div class="list">
+                <a th:each="p : ${pinned}" class="list-item" th:href="@{|/board/post/${p.id}|}">
+                    <span class="chip solid">공지</span>
+                    <span class="body"><b th:text="${p.title}">제목</b><small th:text="|${p.board.name} · ${#temporals.format(p.created, 'M.d')}|">사내 공지</small></span>
+                </a>
+            </div>
+        </section>
+        <section class="card" aria-labelledby="r-title">
+            <div class="card-head"><h2 id="r-title">최근 글</h2></div>
+            <div th:if="${#lists.isEmpty(recentPosts)}" class="empty-sm">아직 글이 없어요.</div>
+            <div class="list">
+                <a th:each="p : ${recentPosts}" class="list-item" th:href="@{|/board/post/${p.id}|}">
+                    <span class="body"><b th:text="${p.title}">제목</b>
+                        <small th:text="|${p.board.name} · ${p.author != null ? p.author.displayName : ''} · ${#temporals.format(p.created, 'M.d HH:mm')}|">사내 공지</small></span>
+                    <th:block th:if="${p.issueStatus != null}"><span th:replace="~{fragments/ui :: chip(${p.issueStatus.name()}, ${p.issueStatus.label})}"></span></th:block>
+                </a>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

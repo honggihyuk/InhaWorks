@@ -1,0 +1,15 @@
+build/
+.gradle/
+out/
+.idea/
+*.iml
+
+# InhaWorks 실행 중 생기는 파일
+data/
+uploads/
+
+# 화면 스크린샷 (로컬 확인용, 저장소에 올리지 않음)
+docs/screenshots/
+
+# 기존 화면 백업 zip (로컬 보관용)
+backup/

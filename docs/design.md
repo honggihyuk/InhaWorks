@@ -1,0 +1,253 @@
+# InhaWorks 디자인 시스템 (design.md)
+
+> 화면을 새로 만들거나 고칠 때 따르는 규칙입니다. 실제 값은 `src/main/resources/static/css/app.css` 가 기준이고,
+> 이 문서는 그 값을 언제·어떻게 쓰는지 정리한 것입니다. (2026-11-19 기준)
+
+---
+
+## 1. 원칙
+
+| 원칙 | 뜻 |
+|---|---|
+| **흰 바탕 · 검은 글자** | 바탕은 흰색, 글자는 거의 검정(#0B0F19). 회색 배경 박스를 남발하지 않는다 |
+| **연한 파랑은 보조** | 선택된 메뉴, 안내 박스, 칩, 진행 막대 같은 보조 요소에만 연한 파랑을 쓴다 |
+| **진한 파랑은 아껴서** | 파랑(#2563EB)은 **핵심 숫자**와 **주 버튼**에만. 한 화면에 주 버튼은 보통 하나 |
+| **빨강은 문제일 때만** | 재작업·반려·DEAD·실패·삭제처럼 사람이 확인해야 하는 것에만 |
+| **절제 · 여백 · 위계** | 장식 대신 여백과 글자 크기로 구분한다 (Apple 디자인 원칙) |
+| **되돌릴 수 없는 일은 한 번 더 묻는다** | 삭제·반려·재처리 등은 확인 모달. 되돌릴 수 있는 일은 토스트 + 실행 취소 |
+
+---
+
+## 2. 디자인 토큰
+
+### 2.1 색 (`:root` 변수)
+
+| 변수 | 값 | 쓰임 |
+|---|---|---|
+| `--text` | `#0B0F19` | 본문·제목 |
+| `--muted` | `#5B6475` | 보조 글자, 표 머리, 라벨 |
+| `--faint` | `#8A93A3` | 더 약한 글자 (빈 칸, 화살표) |
+| `--border` | `#EDF0F4` | 카드·표·입력칸 테두리, 구분선 |
+| `--bg` / `--bg-soft` | `#FFFFFF` / `#FAFBFC` | 바탕 / 호버 |
+| `--lb` | `#F5F8FF` | 연한 파랑 바탕 (안내 박스, 히어로 카드, 오늘 칸) |
+| `--lb2` | `#EEF4FF` | 연한 파랑 (선택된 메뉴·칩) |
+| `--lb-border` | `#D6E4FF` | 연한 파랑 테두리 |
+| `--lb-fill` | `#A9C4F5` | 진행 막대 기본 채움 |
+| `--blue` / `--blue-hover` | `#2563EB` / `#1D4ED8` | 핵심 숫자, 주 버튼, 포커스 링 |
+| `--danger` | `#B42318` (바탕 `#FEF3F2`, 테두리 `#F3C9C4`) | 재작업·반려·DEAD·삭제 |
+| `--row-hover` | `#FAFCFF` | 표 행 호버 |
+
+### 2.2 글자
+
+- 글꼴 : `-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", system-ui` (웹폰트를 따로 받지 않는다)
+- 숫자는 `font-variant-numeric: tabular-nums` (`.tnum`, KPI, 표의 시각·건수)
+
+| 역할 | 크기 / 굵기 | 예 |
+|---|---|---|
+| 히어로 숫자 | 64px / 700, -0.04em | 대시보드 오늘 완료율, 출퇴근 시계 |
+| 페이지 제목 `h1.page-title` | 32px / 700, -0.025em, 줄 1.15 | "할 일", "대시보드" |
+| KPI 숫자 `.kpi .value` | 32px / 700, -0.03em | 검수 대기 4 |
+| 로그인 제목 | 28px / 700 | "로그인" |
+| 카드 제목 `.card-head h2` | 18px / 700 | "직원별 현황" |
+| 본문 | 14px / 400, 줄 1.5 | |
+| 라벨·표 머리·칩 | 12px / 600 (칩 500) | |
+
+제목 단계는 h1(페이지) → h2(카드) 순서를 지킨다 (건너뛰지 않기).
+
+### 2.3 모양 · 간격 · 그림자
+
+| 항목 | 값 |
+|---|---|
+| 카드 | 흰 바탕, 1px `--border`, 모서리 16px, 안쪽 22px 24px, 아주 옅은 그림자 |
+| 버튼 · 입력칸 | 높이 40px 이상, 모서리 10px (작은 버튼 32px / 8px, 큰 버튼 52px / 12px) |
+| 칩 | 높이 22px, 알약 모양, 12px |
+| 진행 막대 | 높이 8px, 둥근 끝 |
+| 본문 여백 | 32px 40px (좁은 화면 24px 16px), 구역 사이 28px |
+| 사이드바 폭 | 240px |
+| 떠 있는 것(메뉴·모달·토스트) 그림자 | `--shadow-pop` |
+
+---
+
+## 3. 화면 틀 (`templates/layouts/layout.html`)
+
+```
+┌──────────┬──────────────────────────────────────────┐
+│ 사이드바  │ 상단바 (반투명 · 블러) : 브레드크럼 · 🔔        │
+│ 메뉴      ├──────────────────────────────────────────┤
+│          │ 본문 .content (머리말 → 카드들)              │
+│ 상태 카드 │                                          │
+│ 내 정보   │                                          │
+└──────────┴──────────────────────────────────────────┘
+```
+
+- **사이드바** : 흰 바탕 + 오른쪽 테두리. 선택된 메뉴는 `#EEF4FF` 바탕 + `#D6E4FF` 테두리, 아이콘만 파랑.
+  - 관리자 : 업무(대시보드, 할 일, 보고서, 결재함 배지, 게시판) / 근태(출퇴근·스케줄·휴가) / 관리(재처리 모니터 + 빨간 DEAD 배지, 직원·조직)
+  - 직원 : 우리 회사(홈, 할 일, 보고서, 게시판, 출퇴근·스케줄·휴가, 알림)
+  - 아래 : 관리자 상태 카드("스케줄러 정상 · 다음 자동 배정 · 대기 이벤트") + 내 정보 · 로그아웃
+  - 배지 숫자는 `LayoutModelAdvice` 가 넣는다 (`navInbox`, `navReviewWaiting`, `navDead` …)
+- **상단바** : `rgba(255,255,255,.72)` + `backdrop-filter: blur(20px) saturate(180%)`, 화면 위에 붙어 있음. 각 화면이 `layout:fragment="crumbs"` 로 위치를 적는다 (예: 관리자 › 할 일 › 직원별 현황).
+- **본문 머리말** `.page-header` : 위 작은 글(날짜·분류) → h1 → 설명, 오른쪽에 버튼 묶음 `.actions`.
+
+새 화면 템플릿의 기본 모양 :
+
+```html
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>화면 이름</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>화면 이름</b></nav>
+<main layout:fragment="content" class="content">
+    <div class="page-header"><div><h1 class="page-title">화면 이름</h1><p class="page-sub">설명</p></div>
+        <div class="actions"><a class="btn primary" href="#">주 동작</a></div></div>
+    <section class="card"><div class="card-head"><h2>카드 제목</h2></div> … </section>
+</main>
+</body>
+</html>
+```
+
+---
+
+## 4. 구성 요소
+
+### 4.1 카드와 숫자
+
+| 클래스 | 쓰임 |
+|---|---|
+| `.card` / `.card.flush` (표가 꽉 차게) / `.card.soft` (연한 파랑, 안내·검수 박스) | 모든 내용 묶음 |
+| `.card.hero` | 대시보드 첫 카드 (2칸 차지, 연한 파랑, 64px 파란 숫자 + 파란 막대) |
+| `.card.kpi` + `.label` `.value` `.foot` | KPI. 핵심 지표만 `.value.blue`, 문제는 `.value.red` |
+| `.grid.grid-2/3/4`, `.split` (본문 + 오른쪽 360px), `.split.left-list` (왼쪽 목록 340px) | 배치 |
+
+대시보드 KPI는 히어로 1개 + 카드 2개까지만. 숫자를 늘어놓지 않는다.
+
+### 4.2 표
+
+- `.table-box` 로 감싸서 넓은 표는 상자 안에서만 가로 스크롤 (페이지가 옆으로 밀리지 않게)
+- 머리 12px/600 회색, 칸 16px 20px, 행 호버 `#FAFCFF`, 고정 공지 행 `.pinned` (연한 파랑), 흐리게 `.dim` (중지·종료)
+- 행 끝 메뉴는 ⋯ 아이콘 버튼 (`data-menu-trigger`)
+
+### 4.3 상태 칩 (`fragments/ui :: chip(code, label)`)
+
+상태 이름(enum)만 넘기면 색이 정해진다. 직접 색을 고르지 않는다.
+
+| 색 | 상태 |
+|---|---|
+| 파랑 채움 `.chip.solid` | APPROVED(검수 통과·검토완료·승인), RESOLVED, COMPLETED, DONE, 공지 |
+| 빨강 `.chip.red` | REWORK, REJECTED, DEAD, FAILED, OPEN(미해결) |
+| 회색 `.chip.grey` | NOT_SUBMITTED(미완료), WAITING, PENDING, CANCELED |
+| 연한 파랑 `.chip.blue` | 그 밖의 진행 중 (검수 대기중, 검토중, 제출완료, 처리 중 …) |
+| 테두리만 `.chip.outline` | 정보 (항목 6개, #해시태그, 항목 종류) |
+
+### 4.4 버튼
+
+| 클래스 | 쓰임 |
+|---|---|
+| `.btn.primary` (파랑) | 화면의 주 동작 하나 : 저장, 제출, 승인, 검수 통과, 배정 |
+| `.btn.soft` (연한 파랑) | 보조 이동 : 결재함, 검수 대기함, 댓글 등록 |
+| `.btn` (흰색) | 일반 : 취소, 이전/다음, 수정 |
+| `.btn.danger` (빨간 테두리) | 되돌리기 어려운 동작 : 삭제, 반려, 재작업 요청, 퇴사 처리 |
+| `.btn.dark` (검정) | 퇴근하기처럼 주 동작과 짝을 이루는 강한 동작 |
+| `.btn.ghost` | 표 안의 가벼운 동작 : 보기, 지우기 |
+| 크기 `.sm` / `.lg` / `.block` | 표 안 / 제출 버튼 / 꽉 차게 |
+
+누르면 `scale(.97)` 100ms, 키보드 포커스는 2px 파란 테두리.
+
+### 4.5 입력
+
+- `.field` > `label` + `.input` / `.select` / `.textarea`, 오류는 `.field-error` (빨강 12px)
+- 체크 목록 `.check-grid` > `.check` (체크되면 연한 파랑), 요일·선택지 `.toggle-chips`
+- 예/아니오 `.yn` (둥근 토글 2개), 사진 `.photo-pick` (점선 상자 + 미리보기), 서명 `canvas.sig-pad`
+- 할 일·보고서 작성 폼은 `.task-form` : **파란 머리**(제목·날짜·상태) + 재작업 사유 `.banner-red` + 가이드 `.guide` + 항목 `.q-card` + 큰 제출 버튼
+- 입력 이름은 서버와 약속된 그대로 : `item_{ID}` / `field_{ID}`, 파일 `file_{ID}`, 서명 `sig_{ID}`, 중복 방지 `submitToken`
+
+### 4.6 폼 빌더 (할 일 · 보고서 양식)
+
+- 항목 카드 `.f-card` : 번호 · 종류 칩 · 질문 · 필수/선택 · (객관식만) 선택지
+- 아래 점선 버튼 `.add-btn` "+ 항목 추가" → 종류 메뉴 `.type-menu`
+- 수정할 때 기존 항목은 숨은 `itemIds` / `fieldIds` 로 구분 (종류는 바꾸지 않는다)
+
+### 4.7 세그먼트 · 탭
+
+- `.segmented` : 같은 데이터의 다른 보기 (전체/진행 중/일시중지/종료, 주별/월별, 양식 빌더/제출 현황, 출퇴근/스케줄/휴가)
+- `.tabs-line` : 게시판처럼 서로 다른 목록 사이 이동
+
+### 4.8 목록-상세 (결재함, 오늘 할 일, 검수 대기함)
+
+넓은 화면(1101px~)에서는 왼쪽 목록 `[data-md-item]` 을 누르면 오른쪽 `[data-md-pane]` 에 상세 화면의 `[data-md-content]` 부분을 불러온다. 좁은 화면에서는 그냥 상세 화면으로 이동.
+
+### 4.9 달력 · 주간표
+
+- 주간 스케줄 `table.week` : 오늘 열 연한 파랑, 근무는 `.shift` 칩
+- 월별 스케줄 `table.month-cal` : 월요일 시작, 지난·다음 달 날짜는 흐리게(`.out`), 오늘 연한 파랑, 칸의 + 로 배정 폼 날짜 채우기
+
+### 4.10 대시보드 전용
+
+- 근무지별 퍼널 `.funnel-row` : 배정 → 제출 완료 → 검수 대기 → 재작업 필요(빨강) → 검수 통과
+- 이번 주 제출 `.week-chart` : 막대는 연한 파랑, **오늘만 파랑**
+- 확인 필요 `.attn` : DEAD 이벤트(빨강 아이콘) · 결재 대기 · 휴가 신청, 누르면 해당 화면으로
+
+---
+
+## 5. 상호작용 규칙 (`static/js/app.js`)
+
+### 5.1 확인 모달 — 이럴 때는 꼭 묻는다
+
+`window.confirm` 을 쓰지 않는다. 버튼(또는 form)에 속성을 달면 `app.js` 가 모달을 띄운다.
+
+```html
+<button type="submit" class="btn danger"
+        data-confirm="이 할 일을 삭제할까요?"
+        data-confirm-body="지난 기록은 남아요."
+        data-confirm-ok="삭제" data-danger
+        data-reason="reason" data-reason-label="사유 (필수)">삭제</button>
+```
+
+| 묻는 동작 | 사유 입력 |
+|---|---|
+| 삭제(할 일·팀·근무지·게시판·글·근무), 일시중지·사용 중지, 퇴사 처리 | - |
+| 반려(보고서·휴가), 재작업 요청 | **필수** (채워야 확인 버튼이 켜짐) |
+| Outbox 재처리, 배치 재실행·복구, 미완료 푸시 | - |
+
+### 5.2 토스트
+
+- 서버 메시지(`adminMessage`, `todoMessage`, `reportMessage` …)는 오른쪽 아래 반투명 검은 토스트로 보인다 (오류는 빨강)
+- 되돌릴 수 있는 동작(검수 통과, 승인)은 토스트에 **실행 취소** 버튼 (`undoUrl`, 10분 안)
+- 제자리 처리 폼은 `data-async="메시지"` (+ `data-undo="주소"`) → 처리 후 새로고침하고 토스트
+
+### 5.3 그 밖
+
+- `data-once` : 제출하면 버튼 잠금 (서버도 토큰으로 한 번 더 막음)
+- ⋯ 메뉴는 누른 자리에서 커지며 열린다 (`transform-origin`), Esc·바깥 클릭으로 닫힘
+- 모달은 흐린 배경 위에 짧게 커지며 나타나고, Tab 키가 모달 안에서만 돈다
+
+---
+
+## 6. 접근성 · 움직임
+
+- 모든 입력에 `label` (보이지 않게 할 때는 `.sr-only`), 아이콘 버튼에 `aria-label`
+- 현재 메뉴·탭에 `aria-current`, 진행 막대에 `role="progressbar"` + 값
+- `prefers-reduced-motion` : 크기 변화 없이 흐려지기만
+- `prefers-reduced-transparency` : 반투명·블러 대신 불투명
+
+## 7. 반응형
+
+| 폭 | 바뀌는 것 |
+|---|---|
+| ~1100px | 두 칸 배치(`.split`)가 한 칸으로 |
+| ~900px | 사이드바가 본문 위 가로 메뉴로, KPI 2칸, 본문 여백 16px |
+| ~640px | 목록 행이 줄바꿈 |
+| 항상 | 페이지 가로 스크롤 없음 (넓은 표·달력은 `.table-box` 안에서만 스크롤) |
+
+---
+
+## 8. 파일 위치
+
+| 파일 | 내용 |
+|---|---|
+| `static/css/app.css` | 토큰과 모든 구성 요소 |
+| `static/js/app.js` | 확인 모달, 토스트·실행 취소, 메뉴, 서명 패드, 사진 미리보기, 폼 빌더, 목록-상세, 필터 탭, 시계 |
+| `templates/layouts/layout.html` | 사이드바 · 상단바 · 토스트 자리 |
+| `templates/fragments/ui.html` | 아이콘, 아바타, 상태 칩, 댓글, 항목 입력·보기 |
+| `common/advice/LayoutModelAdvice.java` | 사이드바 배지·상태 카드 값 |
+| `docs/screenshots/ui/` | 화면별 스크린샷 (관리자·직원·모바일·로그인·새 기능) |
+| `docs/feature-inventory.md` | 화면·버튼·엔드포인트 목록 |

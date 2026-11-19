@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>휴가</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>휴가</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub">신청하면 관리자에게 알림이 가고, 승인·반려되면 알려 드려요</p>
+        </div>
+    </div>
+    <div th:replace="~{attendance/tabs :: tabs('leave')}"></div>
+
+    <div class="split">
+        <section class="card" aria-labelledby="mine-title">
+            <div class="card-head"><h2 id="mine-title">내 휴가</h2></div>
+            <div th:if="${#lists.isEmpty(leaves)}" class="empty-sm">신청한 휴가가 없어요.</div>
+            <div class="list">
+                <div class="list-item" th:each="l : ${leaves}">
+                    <div class="body">
+                        <b th:text="|${l.type.label} · ${#temporals.format(l.startDate, 'M.d')} ~ ${#temporals.format(l.endDate, 'M.d')} (${l.days}일)|">연차</b>
+                        <small th:text="|${l.reason != null ? l.reason : '사유 없음'}${l.decisionComment != null ? ' · 관리자: ' + l.decisionComment : ''}|">사유</small>
+                    </div>
+                    <span th:replace="~{fragments/ui :: chip(${l.status.name()}, ${l.status.label})}"></span>
+                    <form th:if="${l.status.name() == 'REQUESTED'}" th:action="@{|/leave/${l.id}/cancel|}" method="post" class="inline">
+                        <button type="submit" class="btn sm ghost" data-confirm="휴가 신청을 취소할까요?" data-confirm-ok="신청 취소" data-danger>취소</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <section class="card" aria-labelledby="req-title">
+            <div class="card-head"><h2 id="req-title">휴가 신청</h2></div>
+            <form th:action="@{/leave}" method="post" class="stack" style="gap:12px" data-once>
+                <div class="field"><label for="type">종류</label>
+                    <select id="type" name="type" class="select"><option th:each="t : ${types}" th:value="${t}" th:text="${t.label}">연차</option></select></div>
+                <div class="grid grid-2" style="gap:10px">
+                    <div class="field"><label for="sd">시작</label><input id="sd" type="date" name="startDate" class="input" th:value="${today}" required></div>
+                    <div class="field"><label for="ed">끝</label><input id="ed" type="date" name="endDate" class="input" th:value="${today}" required></div>
+                </div>
+                <div class="field"><label for="reason">사유 (선택)</label><input id="reason" type="text" name="reason" class="input" maxlength="500"></div>
+                <button type="submit" class="btn primary block">휴가 신청</button>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 직원 근태 세그먼트 탭 (출퇴근 / 스케줄 / 휴가) -->
+<nav th:fragment="tabs(active)" class="segmented" aria-label="근태">
+    <a th:href="@{/attendance}" th:classappend="${active == 'attendance'} ? 'active'" th:attr="aria-current=${active == 'attendance'} ? 'page'">출퇴근</a>
+    <a th:href="@{/schedule}" th:classappend="${active == 'schedule'} ? 'active'" th:attr="aria-current=${active == 'schedule'} ? 'page'">스케줄</a>
+    <a th:href="@{/leave}" th:classappend="${active == 'leave'} ? 'active'" th:attr="aria-current=${active == 'leave'} ? 'page'">휴가</a>
+</nav>
+</html>

@@ -1,0 +1,103 @@
+####################################
+# Port & Project Name
+####################################
+server:
+  port: 8080                    # 포트 번호
+
+spring:
+  application:
+    name: InhaWorks
+
+  devtools:
+    restart:
+      enabled: true
+
+    livereload:
+      enabled: true
+      port: 35729
+
+  thymeleaf:
+    cache: false
+
+  # 요일·날짜를 한국어로 표시 (예: 월요일, (화))
+  web:
+    locale: ko_KR
+    locale-resolver: fixed
+
+  ####################################
+  # MySQL 설정 (데이터베이스 inhaworks 가 없으면 자동으로 만든다)
+  # MySQL 없이 실행하려면 h2 프로필 : ./gradlew bootRun --args='--spring.profiles.active=h2'
+  ####################################
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/inhaworks?createDatabaseIfNotExist=true&serverTimezone=Asia/Seoul&useUnicode=true&characterEncoding=utf8&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: "0000"
+
+  ####################################
+  # JPA 설정
+  ####################################
+  jpa:
+    open-in-view: true      # JPA 영속성 컨텍스트를 뷰까지 유지할지 여부
+    hibernate:
+      ddl-auto: update      # create, update, ...
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy # 카멜케이스를 언더스코어로 변환
+    show-sql: false         # SQL 출력 여부 (스케줄러가 자주 조회하므로 기본은 끔)
+    properties:
+      hibernate:
+        format_sql: true    # SQL 포맷팅 여부
+
+  servlet:
+    encoding:
+      charset: UTF-8        # 인코딩 설정
+    multipart:
+      max-file-size: 10MB     # 파일 1개 최대 크기
+      max-request-size: 60MB  # 사진·서명·문서를 한 번에
+
+####################################
+# InhaWorks 설정
+####################################
+app:
+  # 관리자 계정 (서버 시작 시 없으면 자동 생성)
+  admin:
+    username: admin
+    password: admin1234     # 꼭 바꿔서 사용하세요
+    email: admin@inhaworks.local
+
+  # 처음 실행할 때 예시 데이터 (팀·근무지·직원 3명·할 일·보고서 양식·게시판)
+  seed:
+    enabled: true
+    employee-password: "1234"
+
+  # 업로드 폴더 (프로젝트 폴더 아래 uploads)
+  upload-dir: uploads
+
+  # @Scheduled (Outbox 릴레이, 배치) 켜기
+  scheduling:
+    enabled: true
+
+  # 할 일 마감 알림 시각 (이 시각이 지나면 미완료 직원에게 하루 한 번 알림)
+  todo:
+    deadline-time: "18:00"
+
+  # [신뢰성] Transactional Outbox
+  outbox:
+    fast-path: true               # 커밋 직후 비동기로 바로 처리
+    poll-interval-ms: 5000        # 스케줄러가 PENDING 이벤트를 훑는 주기
+    max-retries: 5                # 이만큼 실패하면 DEAD
+    base-backoff-seconds: 10      # 재시도 간격 = 10초 × 2^(실패횟수-1) (10, 20, 40, 80 ...)
+    max-backoff-seconds: 3600
+    stuck-timeout-seconds: 300    # PROCESSING 으로 5분 넘게 멈춘 이벤트는 PENDING 으로 되살림
+
+  # [신뢰성] 배치 복구
+  batch:
+    generate-cron: "0 5 0 * * *"  # 매일 00:05 오늘 할 일 생성
+    catch-up-days: 7              # 최근 7일 중 빠진 날짜를 다시 생성
+    catch-up-on-startup: true
+    recovery-interval-ms: 600000  # 10분마다 누락·실패 배치 확인
+
+  # [보안] 가벼운 보안 설정
+  security:
+    admin-allowed-ips: ""                 # 비우면 제한 없음. 예) "127.0.0.1,0:0:0:0:0:0:0:1,192.168.0."
+    bulk-download-enabled: true           # 보고서 엑셀·첨부 zip 일괄 다운로드 (관리자만)

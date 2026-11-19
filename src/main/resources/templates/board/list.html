@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${board.name}">게시판</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><a th:href="@{/board}">게시판</a><span class="sep">›</span><b th:text="${board.name}">사내 공지</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <div class="eyebrow" th:text="${board.type.label}">일반</div>
+            <h1 class="page-title" th:text="${board.name}">사내 공지</h1>
+            <p class="page-sub" th:if="${board.description}" th:text="${board.description}">설명</p>
+        </div>
+        <div class="actions"><a th:href="@{|/board/${board.id}/write|}" class="btn primary">글쓰기</a></div>
+    </div>
+
+    <div th:replace="~{board/tabs :: tabs(${board.id})}"></div>
+
+    <!-- 이슈 & 해결 : 상태 통계 4개 -->
+    <th:block th:if="${board.issueBoard}">
+        <section class="grid grid-4" aria-label="이슈 현황">
+            <div class="card kpi"><span class="label">해결률</span><span class="value blue"><th:block th:text="${resolvedRate}">50</th:block><small>%</small></span></div>
+            <a class="card kpi" th:each="e : ${stats}" th:href="@{|/board/${board.id}|(status=${e.key})}"
+               th:style="${status == e.key} ? 'border-color:#D6E4FF;background:#F5F8FF' : ''">
+                <span class="label" th:text="${e.key.label}">미해결</span>
+                <span class="value" th:classappend="${e.key.name() == 'OPEN' and e.value > 0} ? 'red'"><th:block th:text="${e.value}">2</th:block><small>건</small></span>
+            </a>
+        </section>
+        <div class="chips" aria-label="상태로 거르기">
+            <a class="filter-chip" th:href="@{|/board/${board.id}|}" th:classappend="${status == null} ? 'active'">전체</a>
+            <a class="filter-chip" th:each="s : ${issueStatuses}" th:href="@{|/board/${board.id}|(status=${s})}"
+               th:classappend="${status == s} ? 'active'" th:text="${s.label}">미해결</a>
+        </div>
+    </th:block>
+
+    <section class="card flush">
+        <div th:if="${#lists.isEmpty(posts)}" class="empty"><b>아직 글이 없어요</b><span>첫 글을 남겨 보세요</span></div>
+        <div class="table-box" th:unless="${#lists.isEmpty(posts)}">
+            <table class="t">
+                <thead><tr><th>제목</th><th th:if="${board.issueBoard}">상태</th><th>작성자</th><th>날짜</th><th class="right">조회</th></tr></thead>
+                <tbody>
+                <tr th:each="p : ${posts}" th:classappend="${p.pinned} ? 'pinned'">
+                    <td>
+                        <span class="chip solid" th:if="${p.pinned}" style="margin-right:6px">공지</span>
+                        <a class="title-cell" th:href="@{|/board/post/${p.id}|}" th:text="${p.title}">제목</a>
+                        <span class="muted small" th:if="${!#lists.isEmpty(p.files)}" th:text="|📎 ${#lists.size(p.files)}|">📎 1</span>
+                        <span class="resolution-line" th:if="${p.resolution != null and !#strings.isEmpty(p.resolution)}">
+                            <b>해결</b> · <span th:text="${#strings.abbreviate(p.resolution, 80)}">해결 방법</span></span>
+                    </td>
+                    <td th:if="${board.issueBoard}"><th:block th:if="${p.issueStatus != null}"><span th:replace="~{fragments/ui :: chip(${p.issueStatus.name()}, ${p.issueStatus.label})}"></span></th:block></td>
+                    <td class="nowrap" th:text="${p.author != null ? p.author.displayName : '알 수 없음'}">김민수</td>
+                    <td class="tnum muted nowrap" th:text="${#temporals.format(p.created, 'M.d HH:mm')}">11.19</td>
+                    <td class="right tnum muted" th:text="${p.viewCount}">3</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${memberId == null} ? '직원 등록' : '직원 수정'">직원 등록</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/members}">직원·조직</a><span class="sep">›</span><b th:text="${memberId == null} ? '직원 등록' : '직원 수정'">직원 등록</b></nav>
+
+<main layout:fragment="content" class="content narrow">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title" th:text="${memberId == null} ? '직원 등록' : '직원 수정'">직원 등록</h1>
+            <p class="page-sub" th:text="${memberId == null} ? '관리자가 직접 직원 계정을 만들어요' : '비밀번호는 바꿀 때만 입력하세요'">설명</p>
+        </div>
+    </div>
+
+    <form th:action="${memberId == null} ? @{/admin/member/new} : @{|/admin/member/${memberId}/edit|}"
+          th:object="${adminMemberDto}" method="post" class="card stack" style="gap:18px" data-once>
+        <div class="grid grid-2">
+            <div class="field"><label for="username">사용자ID</label>
+                <input type="text" th:field="*{username}" class="input" autocomplete="off">
+                <p th:if="${#fields.hasErrors('username')}" th:errors="*{username}" class="field-error"></p></div>
+            <div class="field"><label for="name">이름</label>
+                <input type="text" th:field="*{name}" class="input">
+                <p th:if="${#fields.hasErrors('name')}" th:errors="*{name}" class="field-error"></p></div>
+            <div class="field"><label for="password" th:text="${memberId == null} ? '비밀번호' : '새 비밀번호 (바꿀 때만)'">비밀번호</label>
+                <input type="password" th:field="*{password}" class="input" autocomplete="new-password" placeholder="4자 이상">
+                <p th:if="${#fields.hasErrors('password')}" th:errors="*{password}" class="field-error"></p></div>
+            <div class="field"><label for="email">이메일 (선택)</label>
+                <input type="email" th:field="*{email}" class="input">
+                <p th:if="${#fields.hasErrors('email')}" th:errors="*{email}" class="field-error"></p></div>
+        </div>
+        <div class="grid grid-3">
+            <div class="field"><label for="teamId">팀</label>
+                <select th:field="*{teamId}" class="select">
+                    <option value="">팀 없음</option>
+                    <option th:each="t : ${teams}" th:value="${t.id}" th:text="${t.name}">영업팀</option>
+                </select></div>
+            <div class="field"><label for="workplaceId">근무지 / 매장</label>
+                <select th:field="*{workplaceId}" class="select">
+                    <option value="">근무지 없음</option>
+                    <option th:each="w : ${workplaces}" th:value="${w.id}" th:text="${w.name}">인하점</option>
+                </select></div>
+            <div class="field"><label for="position">직급</label>
+                <input type="text" th:field="*{position}" class="input" placeholder="사원, 매니저 ..."></div>
+        </div>
+        <div class="grid grid-2">
+            <div class="field"><label for="role">권한</label>
+                <select th:field="*{role}" class="select">
+                    <option th:each="r : ${roles}" th:value="${r}" th:text="${r.label}">직원</option>
+                </select>
+                <p th:if="${#fields.hasErrors('role')}" th:errors="*{role}" class="field-error"></p></div>
+            <div class="field"><label for="phone">연락처 (선택)</label>
+                <input type="text" th:field="*{phone}" class="input" placeholder="010-0000-0000"></div>
+        </div>
+        <label class="round-check"><input type="checkbox" th:field="*{active}">재직 중 (끄면 로그인할 수 없어요)</label>
+        <div class="row" style="justify-content:space-between">
+            <a th:href="@{/admin/members}" class="btn">목록으로</a>
+            <button type="submit" class="btn primary" th:text="${memberId == null} ? '등록하기' : '저장하기'">등록하기</button>
+        </div>
+    </form>
+</main>
+</body>
+</html>

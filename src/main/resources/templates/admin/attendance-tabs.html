@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 관리자 근태 화면 위의 세그먼트 탭 (출퇴근 현황 / 스케줄 배정 / 휴가 승인) -->
+<nav th:fragment="tabs(active)" class="segmented" aria-label="근태">
+    <a th:href="@{/admin/attendance}" th:classappend="${active == 'attendance'} ? 'active'" th:attr="aria-current=${active == 'attendance'} ? 'page'">출퇴근 현황</a>
+    <a th:href="@{/admin/schedule}" th:classappend="${active == 'schedule'} ? 'active'" th:attr="aria-current=${active == 'schedule'} ? 'page'">스케줄 배정</a>
+    <a th:href="@{/admin/leave}" th:classappend="${active == 'leave'} ? 'active'" th:attr="aria-current=${active == 'leave'} ? 'page'">휴가 승인
+        <span class="badge" th:if="${navLeavePending != null and navLeavePending > 0}" th:text="${navLeavePending}">1</span></a>
+</nav>
+</html>

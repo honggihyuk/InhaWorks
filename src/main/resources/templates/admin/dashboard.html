@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>대시보드</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>대시보드</b></nav>
+
+<main layout:fragment="content" class="content" th:with="d=${dash}">
+    <div class="page-header">
+        <div>
+            <div class="eyebrow" th:text="${#temporals.format(d.today(), 'yyyy년 M월 d일 EEEE')}">2026년 11월 19일 목요일</div>
+            <h1 class="page-title">대시보드</h1>
+        </div>
+        <div class="actions">
+            <a th:href="@{/admin/todo/new}" class="btn">할 일 만들기</a>
+            <a th:href="@{/admin/report/new}" class="btn">보고서 양식 만들기</a>
+        </div>
+    </div>
+
+    <!-- 히어로 + KPI 2개 -->
+    <section class="dash-top" aria-label="오늘 요약">
+        <div class="card hero">
+            <div class="kpi"><span class="label">오늘 할 일 완료율</span></div>
+            <div class="hero-num"><th:block th:text="${d.rate()}">72</th:block><small>%</small></div>
+            <div class="bar hero-bar key" role="progressbar" aria-label="오늘 할 일 완료율" aria-valuemin="0" aria-valuemax="100" th:aria-valuenow="${d.rate()}">
+                <span th:style="|width: ${d.rate()}%|"></span></div>
+            <div class="row">
+                <span class="muted tnum" th:text="|${d.membersDone()} / ${d.members()}명 제출 · 미완료 ${d.membersLeft()}명|">8 / 11명 제출 · 미완료 3명</span>
+                <span class="spacer"></span>
+                <a class="hero-link" th:href="@{/admin/todo}">직원별 현황 보기 →</a>
+            </div>
+        </div>
+        <a class="card kpi" th:href="@{/todo/review}">
+            <span class="label">검수 대기</span>
+            <span class="value"><th:block th:text="${d.reviewWaiting()}">4</th:block><small>건</small></span>
+            <span class="foot">제출 후 검수를 기다리는 할 일</span>
+        </a>
+        <a class="card kpi" th:href="@{/approvals}">
+            <span class="label">결재 대기 보고서</span>
+            <span class="value"><th:block th:text="${d.approvalWaiting()}">2</th:block><small>건</small></span>
+            <span class="foot">결재선 진행 중인 보고서</span>
+        </a>
+    </section>
+
+    <div class="split">
+        <!-- 근무지별 업무 현황 -->
+        <section class="card" aria-labelledby="wp-title">
+            <div class="card-head"><h2 id="wp-title">근무지별 업무 현황</h2><span class="meta">오늘 배정 기준</span></div>
+            <div th:if="${#lists.isEmpty(d.workplaces())}" class="empty">
+                <b>오늘 배정된 할 일이 없어요</b>
+                <span>배치가 아직 돌지 않았다면 재처리 모니터에서 확인해 주세요</span>
+            </div>
+            <div class="funnel" th:unless="${#lists.isEmpty(d.workplaces())}">
+                <div class="funnel-row" th:each="w : ${d.workplaces()}">
+                    <div class="wp"><b th:text="${w.name()}">인하점</b><small class="tnum" th:text="|완료율 ${w.rate()}%|">완료율 80%</small></div>
+                    <div class="funnel-steps">
+                        <div class="fstep"><small>배정</small><b th:text="${w.assigned()}">10</b>
+                            <div class="bar"><span style="width:100%"></span></div></div>
+                        <div class="fstep"><small>제출 완료</small><b th:text="${w.done()}">8</b>
+                            <div class="bar"><span th:style="|width: ${w.pct(w.done())}%|"></span></div></div>
+                        <div class="fstep"><small>검수 대기</small><b th:text="${w.reviewWaiting()}">3</b>
+                            <div class="bar"><span th:style="|width: ${w.pct(w.reviewWaiting())}%|"></span></div></div>
+                        <div class="fstep"><small>재작업 필요</small><b th:text="${w.rework()}" th:classappend="${w.rework() > 0} ? 'red'">1</b>
+                            <div class="bar"><span th:style="|width: ${w.pct(w.rework())}%; ${w.rework() > 0 ? 'background:#F3C9C4' : ''}|"></span></div></div>
+                        <div class="fstep"><small>검수 통과</small><b th:text="${w.approved()}">4</b>
+                            <div class="bar"><span th:style="|width: ${w.pct(w.approved())}%|"></span></div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="stack">
+            <!-- 이번 주 제출 -->
+            <section class="card" aria-labelledby="week-title">
+                <div class="card-head"><h2 id="week-title">이번 주 제출</h2><span class="meta">오늘은 파랑</span></div>
+                <div class="week-chart" role="img" th:aria-label="|이번 주 날짜별 제출 수|">
+                    <div class="col" th:each="b : ${d.week()}" th:classappend="${b.today()} ? 'today'">
+                        <span class="val" th:text="${b.count()}">3</span>
+                        <span class="b" th:style="|height: ${d.weekMax() == 0 ? 3 : (b.count() * 100 / d.weekMax())}%|"></span>
+                        <span class="day" th:text="${#temporals.format(b.date(), 'E')}">월</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 확인 필요 -->
+            <section class="card" aria-labelledby="attn-title">
+                <div class="card-head"><h2 id="attn-title">확인 필요</h2></div>
+                <a class="attn" th:href="@{/admin/monitor(status='DEAD')}">
+                    <span class="ic" th:classappend="${d.dead() > 0} ? 'red'">!</span>
+                    <span class="body"><b th:text="|DEAD 이벤트 ${d.dead()}건|">DEAD 이벤트 1건</b><small>재처리 모니터에서 다시 처리</small></span>
+                    <span class="chev">›</span>
+                </a>
+                <a class="attn" th:href="@{/approvals}">
+                    <span class="ic">✓</span>
+                    <span class="body"><b th:text="|결재 대기 ${d.approvalWaiting()}건|">결재 대기 2건</b><small>결재함 열기</small></span>
+                    <span class="chev">›</span>
+                </a>
+                <a class="attn" th:href="@{/admin/leave}">
+                    <span class="ic">휴</span>
+                    <span class="body"><b th:text="|휴가 신청 ${d.leavePending()}건|">휴가 신청 1건</b><small>승인 또는 반려</small></span>
+                    <span class="chev">›</span>
+                </a>
+            </section>
+        </div>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>보고서</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/report}">보고서</a><span class="sep">›</span><b>제출 현황</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">보고서</h1>
+            <p class="page-sub">양식을 만들고(항목 · 작성 대상 · 주기 · 결재선), 제출 현황을 엑셀로 받아요</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{/approvals}" class="btn soft">결재함
+                <span class="badge" th:if="${navInbox != null and navInbox > 0}" th:text="${navInbox}">1</span></a>
+        </div>
+    </div>
+
+    <div class="row" style="justify-content:space-between">
+        <nav class="segmented" aria-label="보고서 보기">
+            <a th:href="@{/admin/report/new}">양식 빌더</a>
+            <a th:href="@{/admin/report}" class="active" aria-current="page">제출 현황</a>
+        </nav>
+        <div class="chips" aria-label="분류">
+            <a class="filter-chip" th:href="@{/admin/report}" th:classappend="${category == null} ? 'active'">전체</a>
+            <a class="filter-chip" th:each="c : ${categories}" th:href="@{/admin/report(category=${c})}"
+               th:classappend="${category == c} ? 'active'" th:text="|#${c.label}|">#팀별</a>
+        </div>
+    </div>
+
+    <section class="card flush">
+        <div th:if="${#maps.isEmpty(forms)}" class="empty"><b>보고서 양식이 없어요</b><span>‘양식 빌더’에서 첫 양식을 만들어 보세요</span></div>
+        <div class="table-box" th:unless="${#maps.isEmpty(forms)}">
+            <table class="t">
+                <thead><tr><th>양식</th><th>분류</th><th>작성 대상</th><th>언제</th><th>결재선</th><th class="right">제출</th><th class="right"><span class="sr-only">메뉴</span></th></tr></thead>
+                <tbody>
+                <tr th:each="e : ${forms}" th:with="f=${e.key}" th:classappend="${f.active} ? '' : 'dim'">
+                    <td>
+                        <a class="title-cell" th:href="@{|/admin/report/${f.id}|}" th:text="${f.title}">주간 업무 보고</a>
+                        <span th:unless="${f.active}" class="chip grey">사용 중지</span>
+                        <span class="chips" style="margin-top:6px" th:unless="${#lists.isEmpty(f.tagList)}">
+                            <span class="chip outline" th:each="t : ${f.tagList}" th:text="${t}">#주간보고</span></span>
+                    </td>
+                    <td><span class="chip blue" th:text="${f.category?.label}">팀별</span></td>
+                    <td th:text="${f.writerText}">영업팀</td>
+                    <td class="nowrap" th:text="${f.scheduleText != null ? f.scheduleText : f.cycle?.label}">매주 월요일</td>
+                    <td class="small" th:text="${f.approvalLineText}">김민수 → 관리자</td>
+                    <td class="right tnum"><b th:text="${e.value}">3</b><span class="muted">건</span></td>
+                    <td class="right">
+                        <div class="menu-wrap">
+                            <button type="button" class="icon-btn" data-menu-trigger aria-haspopup="menu" aria-expanded="false" th:aria-label="|${f.title} 메뉴|">
+                                <th:block th:replace="~{fragments/ui :: icon('more')}"/></button>
+                            <div class="menu" role="menu">
+                                <a role="menuitem" th:href="@{|/admin/report/${f.id}|}">제출 내역</a>
+                                <a role="menuitem" th:href="@{|/admin/report/${f.id}/edit|}">양식 수정</a>
+                                <form th:action="@{|/admin/report/${f.id}/active|}" method="post">
+                                    <button th:if="${f.active}" type="submit" role="menuitem" data-confirm="이 양식을 사용 중지할까요?"
+                                            data-confirm-body="직원이 더 이상 이 양식으로 작성할 수 없어요. 언제든 다시 사용할 수 있어요." data-confirm-ok="사용 중지" data-danger>사용 중지…</button>
+                                    <button th:unless="${f.active}" type="submit" role="menuitem">다시 사용</button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

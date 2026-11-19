@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>휴가 승인</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>휴가 승인</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub" th:text="|승인 대기 ${#lists.size(pending)}건|">승인 대기 1건</p>
+        </div>
+    </div>
+
+    <div th:replace="~{admin/attendance-tabs :: tabs('leave')}"></div>
+
+    <section class="card">
+        <div class="card-head"><h2>승인 대기</h2></div>
+        <div th:if="${#lists.isEmpty(pending)}" class="empty-sm">승인 대기 중인 휴가가 없어요.</div>
+        <div class="list">
+            <div class="list-item" th:each="l : ${pending}">
+                <span th:replace="~{fragments/ui :: avatar(${l.member}, '')}"></span>
+                <div class="body">
+                    <b th:text="|${l.member.displayName} · ${l.type.label} · ${#temporals.format(l.startDate, 'M.d')} ~ ${#temporals.format(l.endDate, 'M.d')} (${l.days}일)|">이서연 · 연차</b>
+                    <small th:text="${l.reason != null ? l.reason : '사유 없음'}">사유</small>
+                </div>
+                <form th:action="@{|/admin/leave/${l.id}|}" method="post" class="row" style="gap:6px" data-once>
+                    <label class="sr-only" th:for="|cm${l.id}|">의견</label>
+                    <input th:id="|cm${l.id}|" type="text" name="comment" class="input" placeholder="의견 (선택)" maxlength="500" style="width:180px;min-height:32px">
+                    <button type="submit" name="decision" value="reject" class="btn sm danger"
+                            data-confirm="휴가를 반려할까요?" th:attr="data-confirm-body=|${l.member.displayName} 님에게 반려 사유와 함께 알림이 가요.|"
+                            data-confirm-ok="반려" data-danger data-reason="comment" data-reason-label="반려 사유 (필수)">반려</button>
+                    <button type="submit" name="decision" value="approve" class="btn sm primary">승인</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section class="card flush">
+        <div class="card-head"><h2>최근 휴가</h2></div>
+        <div th:if="${#lists.isEmpty(recent)}" class="empty-sm" style="padding:18px 22px">기록이 없어요.</div>
+        <div class="table-box" th:unless="${#lists.isEmpty(recent)}">
+            <table class="t">
+                <thead><tr><th>직원</th><th>종류</th><th>기간</th><th>상태</th><th>처리</th></tr></thead>
+                <tbody>
+                <tr th:each="l : ${recent}">
+                    <td><b th:text="${l.member.displayName}">이서연</b></td>
+                    <td th:text="${l.type.label}">연차</td>
+                    <td class="tnum" th:text="|${#temporals.format(l.startDate, 'M.d')} ~ ${#temporals.format(l.endDate, 'M.d')}|">11.20 ~ 11.21</td>
+                    <td><span th:replace="~{fragments/ui :: chip(${l.status.name()}, ${l.status.label})}"></span></td>
+                    <td class="muted small" th:text="${l.decidedBy != null ? l.decidedBy.displayName + ' · ' + #temporals.format(l.decidedAt, 'M.d HH:mm') + (l.decisionComment != null ? ' · ' + l.decisionComment : '') : '-'}">관리자</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

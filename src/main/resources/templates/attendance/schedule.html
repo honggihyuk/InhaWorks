@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>스케줄</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>스케줄</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <p class="page-sub" th:text="|${#temporals.format(monday, 'M월 d일')} ~ ${#temporals.format(monday.plusDays(6), 'M월 d일')}|">11월 16일 ~ 11월 22일</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{/schedule(week=${monday.minusDays(7)})}" class="btn">‹ 지난주</a>
+            <a th:href="@{/schedule}" class="btn">이번 주</a>
+            <a th:href="@{/schedule(week=${monday.plusDays(7)})}" class="btn">다음 주 ›</a>
+        </div>
+    </div>
+    <div class="row" style="justify-content:space-between">
+        <div th:replace="~{attendance/tabs :: tabs('schedule')}"></div>
+        <nav class="segmented" aria-label="보기">
+            <a th:href="@{/schedule(week=${monday})}" class="active" aria-current="page">주별</a>
+            <a th:href="@{/schedule/month(month=${#temporals.format(monday, 'yyyy-MM')})}">월별</a>
+        </nav>
+    </div>
+
+    <section class="day-cards" aria-label="이번 주 근무">
+        <div class="day-card" th:each="d, st : ${days}" th:classappend="${d == today} ? 'today'"
+             th:attr="aria-current=${d == today} ? 'date'">
+            <span class="dn" th:text="${#temporals.format(d, 'M.d (E)')}">11.19 (목)</span>
+            <span th:if="${#lists.isEmpty(byDay[st.index])}" class="faint small">휴무</span>
+            <span class="shift" th:each="s : ${byDay[st.index]}"
+                  th:text="|${#temporals.format(s.startTime, 'HH:mm')}–${#temporals.format(s.endTime, 'HH:mm')}${s.memo != null ? ' · ' + s.memo : ''}|">09:00–18:00</span>
+        </div>
+    </section>
+</main>
+</body>
+</html>

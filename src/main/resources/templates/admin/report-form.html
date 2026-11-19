@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${formId != null} ? '양식 수정' : '양식 빌더'">양식 빌더</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/report}">보고서</a><span class="sep">›</span><b th:text="${formId != null} ? '양식 수정' : '양식 빌더'">양식 빌더</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">보고서</h1>
+            <p class="page-sub" th:text="${formId != null} ? '이미 제출된 보고서는 그대로예요. 지운 항목도 지난 보고서·엑셀에는 남고, 바꾼 결재선은 다음 제출부터 적용돼요' : '항목 : 예/아니오, 체크박스, 이미지, 서명, 객관식, 주관식, 문서'">항목 안내</p>
+        </div>
+    </div>
+    <nav class="segmented" aria-label="보고서 보기">
+        <a th:href="@{/admin/report/new}" th:classappend="${formId == null} ? 'active'" th:text="${formId != null} ? '새 양식' : '양식 빌더'">양식 빌더</a>
+        <a th:if="${formId != null}" th:href="@{|/admin/report/${formId}/edit|}" class="active" aria-current="page">양식 수정</a>
+        <a th:href="@{/admin/report}">제출 현황</a>
+    </nav>
+
+    <!-- 입력 이름은 기존 화면과 같다 (ReportFormForm) : fieldTypes / fieldLabels / fieldOptions / fieldRequired, approverIds × 3 -->
+    <form th:action="${formId != null} ? @{|/admin/report/${formId}/edit|} : @{/admin/report/new}" th:object="${reportFormForm}" method="post" data-once>
+        <div th:if="${#fields.hasGlobalErrors()}" class="alert danger" style="margin-bottom:16px">
+            <p th:each="e : ${#fields.globalErrors()}" th:text="${e}">오류</p>
+        </div>
+
+        <div class="split">
+            <div class="stack">
+                <section class="card">
+                    <label class="sr-only" for="title">양식 이름</label>
+                    <input type="text" th:field="*{title}" class="input title" placeholder="양식 이름 (예: 주간 업무 보고)" maxlength="100">
+                    <p th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="field-error"></p>
+                    <div class="field" style="margin-top:16px">
+                        <label for="description">작성 안내</label>
+                        <textarea th:field="*{description}" class="textarea" rows="3" placeholder="무엇을 어떻게 적으면 되는지"></textarea>
+                    </div>
+                    <div class="field" style="margin-top:12px">
+                        <label for="hashtags">해시태그 (띄어쓰기로 여러 개)</label>
+                        <input type="text" th:field="*{hashtags}" class="input" placeholder="#주간보고 #영업팀" maxlength="200">
+                    </div>
+                </section>
+
+                <section class="card" data-builder>
+                    <div class="card-head"><h2>항목</h2><span class="meta">객관식은 선택지를 쉼표로 (예: 초과 달성,달성,미달)</span></div>
+                    <div class="builder" data-builder-list>
+                        <div class="f-card" th:each="lbl, st : ${reportFormForm.fieldLabels}"
+                             th:with="tp=${reportFormForm.typeAt(st.index) ?: 'TEXT'}">
+                            <div class="f-top">
+                                <span class="grip" data-n>01</span>
+                                <span class="chip blue" data-type-chip><th:block th:each="ft : ${fieldTypes}" th:if="${ft.name() == tp}" th:text="${ft.label}">주관식</th:block></span>
+                                <span class="spacer"></span>
+                                <button type="button" class="btn sm ghost" data-remove-card>지우기</button>
+                            </div>
+                            <input type="hidden" name="fieldIds" th:value="${reportFormForm.fieldIdAt(st.index)}">
+                            <input type="hidden" name="fieldTypes" th:value="${tp}" data-type-input>
+                            <div class="f-row">
+                                <input type="text" name="fieldLabels" class="input" th:value="${lbl}" maxlength="200" placeholder="질문" aria-label="질문">
+                                <select name="fieldRequired" class="select" aria-label="필수 여부">
+                                    <option value="Y">필수</option>
+                                    <option value="N" th:selected="${reportFormForm.requiredAt(st.index) == 'N'}">선택</option>
+                                </select>
+                            </div>
+                            <div data-options><input type="text" name="fieldOptions" class="input" th:value="${reportFormForm.optionAt(st.index)}" maxlength="500" placeholder="선택지 (쉼표로)" aria-label="객관식 선택지"></div>
+                        </div>
+                    </div>
+                    <p class="empty-sm" data-builder-empty>아직 항목이 없어요. 아래에서 종류를 골라 추가하세요.</p>
+                    <div class="add-field" style="margin-top:12px">
+                        <div class="menu-wrap" style="display:block">
+                            <button type="button" class="add-btn" data-menu-trigger aria-haspopup="menu" aria-expanded="false">+ 항목 추가</button>
+                            <div class="menu left" role="menu" style="width:100%">
+                                <div class="type-menu">
+                                    <button type="button" role="menuitem" th:each="t : ${fieldTypes}" th:attr="data-add-type=${t}" th:text="${t.label}">주관식</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <template data-builder-tpl>
+                        <div class="f-card">
+                            <div class="f-top">
+                                <span class="grip" data-n>01</span>
+                                <span class="chip blue" data-type-chip>종류</span>
+                                <span class="spacer"></span>
+                                <button type="button" class="btn sm ghost" data-remove-card>지우기</button>
+                            </div>
+                            <input type="hidden" name="fieldIds" value="">
+                            <input type="hidden" name="fieldTypes" value="TEXT" data-type-input>
+                            <div class="f-row">
+                                <input type="text" name="fieldLabels" class="input" maxlength="200" placeholder="질문" aria-label="질문">
+                                <select name="fieldRequired" class="select" aria-label="필수 여부"><option value="Y">필수</option><option value="N">선택</option></select>
+                            </div>
+                            <div data-options><input type="text" name="fieldOptions" class="input" maxlength="500" placeholder="선택지 (쉼표로)" aria-label="객관식 선택지"></div>
+                        </div>
+                    </template>
+                </section>
+            </div>
+
+            <aside class="stack">
+                <section class="card">
+                    <div class="card-head"><h2>기본 설정</h2></div>
+                    <div class="stack" style="gap:12px">
+                        <div class="field"><label for="category">분류</label>
+                            <select th:field="*{category}" class="select">
+                                <option th:each="c : ${categories}" th:value="${c}" th:text="${c.label}">팀별</option>
+                            </select></div>
+                        <div class="label">누가</div>
+                        <div class="grid grid-2" style="gap:10px">
+                            <div class="field"><label for="teamId">팀</label>
+                                <select th:field="*{teamId}" class="select">
+                                    <option value="">지정 없음</option>
+                                    <option th:each="t : ${teams}" th:value="${t.id}" th:text="${t.name}">영업팀</option>
+                                </select></div>
+                            <div class="field"><label for="workplaceId">매장</label>
+                                <select th:field="*{workplaceId}" class="select">
+                                    <option value="">지정 없음</option>
+                                    <option th:each="w : ${workplaces}" th:value="${w.id}" th:text="${w.name}">인하점</option>
+                                </select></div>
+                        </div>
+                        <div class="field"><span class="label">직원 지정 (팀·매장·직원 모두 비우면 전 직원)</span>
+                            <div class="check-grid">
+                                <label class="check" th:each="m : ${members}">
+                                    <input type="checkbox" th:field="*{writerIds}" th:value="${m.id}">
+                                    <span th:text="${m.displayName}">이서연</span> <small th:text="${m.team?.name}">영업팀</small>
+                                </label>
+                            </div></div>
+                        <div class="label">언제</div>
+                        <div class="grid grid-2" style="gap:10px">
+                            <div class="field"><label for="cycle">주기</label>
+                                <select th:field="*{cycle}" class="select">
+                                    <option th:each="c : ${cycles}" th:value="${c}" th:text="${c.label}">매주</option>
+                                </select></div>
+                            <div class="field"><label for="scheduleText">안내 글</label>
+                                <input type="text" th:field="*{scheduleText}" class="input" placeholder="매주 월요일" maxlength="100"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head"><h2>결재선</h2><span class="meta">순서대로 · 비우면 건너뜀</span></div>
+                    <div class="steps">
+                        <div class="step" th:each="i : ${#numbers.sequence(0, 2)}">
+                            <span class="n" th:text="${i + 1}">1</span>
+                            <label class="sr-only" th:for="|approver${i}|" th:text="|${i + 1}단계 결재자|">1단계</label>
+                            <select name="approverIds" class="select" th:id="|approver${i}|">
+                                <option value="">없음</option>
+                                <option th:each="m : ${members}" th:value="${m.id}" th:text="|${m.displayName} (${m.role.label})|"
+                                        th:selected="${reportFormForm.approverAt(i) == m.id}">김민수</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="row">
+                    <a th:href="@{/admin/report}" class="btn">취소</a>
+                    <button type="submit" class="btn primary" style="flex:1">저장</button>
+                </div>
+            </aside>
+        </div>
+    </form>
+</main>
+</body>
+</html>

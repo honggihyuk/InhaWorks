@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="format-detection" content="telephone=no">
+    <title layout:title-pattern="$CONTENT_TITLE · InhaWorks">InhaWorks</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/images/favicon.svg}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <th:block layout:fragment="css"></th:block>
+</head>
+<!-- 공통 레이아웃 : 왼쪽 사이드바 + 반투명 상단바(브레드크럼) + 본문
+     관리자 계정은 관리자 메뉴(업무 / 근태 / 관리), 직원은 '우리 회사' 메뉴 -->
+<body class="ui" th:with="u=${currentUri ?: ''}">
+<div class="app">
+    <aside class="sidebar" aria-label="메뉴">
+        <a class="brand" sec:authorize="hasRole('ADMIN')" th:href="@{/admin}"><span class="brand-mark">I</span>InhaWorks</a>
+        <a class="brand" sec:authorize="!hasRole('ADMIN')" th:href="@{/}"><span class="brand-mark">I</span>InhaWorks</a>
+
+        <!-- ===== 관리자 메뉴 ===== -->
+        <nav sec:authorize="hasRole('ADMIN')">
+            <div class="nav-group">
+                <div class="nav-label">업무</div>
+                <a class="nav-item" th:href="@{/admin}" th:classappend="${u == '/admin' or u == '/admin/'} ? 'active'"
+                   th:attr="aria-current=${u == '/admin' or u == '/admin/'} ? 'page'">
+                    <th:block th:replace="~{fragments/ui :: icon('grid')}"/>대시보드</a>
+                <a class="nav-item" th:href="@{/admin/todo}" th:classappend="${#strings.startsWith(u, '/admin/todo') or #strings.startsWith(u, '/todo')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('check')}"/>할 일
+                    <span class="badge" th:if="${navReviewWaiting != null and navReviewWaiting > 0}" th:text="${navReviewWaiting}" title="검수 대기">2</span></a>
+                <a class="nav-item" th:href="@{/admin/report}" th:classappend="${#strings.startsWith(u, '/admin/report') or #strings.startsWith(u, '/report')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('doc')}"/>보고서</a>
+                <a class="nav-item" th:href="@{/approvals}" th:classappend="${#strings.startsWith(u, '/approvals')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('inbox')}"/>결재함
+                    <span class="badge" th:if="${navInbox != null and navInbox > 0}" th:text="${navInbox}">1</span></a>
+                <a class="nav-item" th:href="@{/board}" th:classappend="${#strings.startsWith(u, '/board') or #strings.startsWith(u, '/admin/board')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('board')}"/>게시판</a>
+            </div>
+            <div class="nav-group">
+                <div class="nav-label">근태</div>
+                <a class="nav-item" th:href="@{/admin/attendance}"
+                   th:classappend="${#strings.startsWith(u, '/admin/attendance') or #strings.startsWith(u, '/admin/schedule') or #strings.startsWith(u, '/admin/leave')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('clock')}"/>출퇴근·스케줄·휴가
+                    <span class="badge" th:if="${navLeavePending != null and navLeavePending > 0}" th:text="${navLeavePending}" title="휴가 승인 대기">1</span></a>
+            </div>
+            <div class="nav-group">
+                <div class="nav-label">관리</div>
+                <a class="nav-item" th:href="@{/admin/monitor}" th:classappend="${#strings.startsWith(u, '/admin/monitor')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('pulse')}"/>재처리 모니터
+                    <span class="badge red" th:if="${navDead != null and navDead > 0}" th:text="|DEAD ${navDead}|">DEAD 1</span></a>
+                <a class="nav-item" th:href="@{/admin/members}"
+                   th:classappend="${#strings.startsWith(u, '/admin/member') or #strings.startsWith(u, '/admin/org')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('users')}"/>직원·조직</a>
+            </div>
+        </nav>
+
+        <!-- ===== 직원 메뉴 ===== -->
+        <nav sec:authorize="!hasRole('ADMIN')">
+            <div class="nav-group">
+                <div class="nav-label">우리 회사</div>
+                <a class="nav-item" th:href="@{/}" th:classappend="${u == '/'} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('home')}"/>홈</a>
+                <a class="nav-item" th:href="@{/todo}" th:classappend="${#strings.startsWith(u, '/todo')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('check')}"/>할 일
+                    <span class="badge" th:if="${navReviewWaiting != null and navReviewWaiting > 0}" th:text="${navReviewWaiting}" title="검수 대기">1</span></a>
+                <a class="nav-item" th:href="@{/report}" th:classappend="${#strings.startsWith(u, '/report') or #strings.startsWith(u, '/approvals')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('doc')}"/>보고서
+                    <span class="badge" th:if="${navInbox != null and navInbox > 0}" th:text="${navInbox}" title="결재 대기">1</span></a>
+                <a class="nav-item" th:href="@{/board}" th:classappend="${#strings.startsWith(u, '/board')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('board')}"/>게시판</a>
+                <a class="nav-item" th:href="@{/attendance}"
+                   th:classappend="${#strings.startsWith(u, '/attendance') or #strings.startsWith(u, '/schedule') or #strings.startsWith(u, '/leave')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('clock')}"/>출퇴근·스케줄·휴가</a>
+                <a class="nav-item" th:href="@{/notifications}" th:classappend="${#strings.startsWith(u, '/notifications')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('bell')}"/>알림
+                    <span class="badge" th:if="${unreadCount != null and unreadCount > 0}" th:text="${unreadCount > 99 ? '99+' : unreadCount}">3</span></a>
+            </div>
+        </nav>
+
+        <div class="sidebar-foot">
+            <!-- 관리자 상태 카드 : 스케줄러 · 다음 자동 배정 · 대기 이벤트 -->
+            <a class="status-card" sec:authorize="hasRole('ADMIN')" th:if="${navNextBatch != null}" th:href="@{/admin/monitor}">
+                <div><span class="status-dot" th:classappend="${!navSchedulingEnabled or navFailedJobs > 0} ? 'bad'"></span>
+                    <b th:text="${!navSchedulingEnabled} ? '스케줄러 꺼짐' : (${navFailedJobs > 0} ? |배치 실패 ${navFailedJobs}건| : '스케줄러 정상')">스케줄러 정상</b></div>
+                <div>다음 자동 배정 <b class="tnum" th:text="${navNextBatch}">00:05</b></div>
+                <div>대기 이벤트 <b class="tnum" th:text="|${navPendingEvents}건|">0건</b></div>
+            </a>
+            <div class="user-row" th:if="${loginMember != null}">
+                <a th:href="@{/me}" class="row" style="gap:10px;flex:1;min-width:0" title="내 정보">
+                    <span th:replace="~{fragments/ui :: avatar(${loginMember}, '')}"></span>
+                    <span class="who"><b th:text="${loginMember.displayName}">홍기혁</b><small th:text="${loginMember.role?.label}">관리자</small></span>
+                </a>
+                <form sec:authorize="hasRole('ADMIN')" th:action="@{/admin/logout}" method="post" class="inline">
+                    <button type="submit" class="icon-btn" title="로그아웃" aria-label="로그아웃"><th:block th:replace="~{fragments/ui :: icon('logout')}"/></button>
+                </form>
+                <form sec:authorize="!hasRole('ADMIN')" th:action="@{/member/logout}" method="post" class="inline">
+                    <button type="submit" class="icon-btn" title="로그아웃" aria-label="로그아웃"><th:block th:replace="~{fragments/ui :: icon('logout')}"/></button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <div class="main">
+        <header class="topbar">
+            <nav class="crumbs" aria-label="현재 위치" layout:fragment="crumbs">
+                <span>InhaWorks</span>
+            </nav>
+            <div class="topbar-right">
+                <a class="icon-btn" th:href="@{/notifications}" title="알림" aria-label="알림">
+                    <th:block th:replace="~{fragments/ui :: icon('bell')}"/>
+                    <span class="dot" th:if="${unreadCount != null and unreadCount > 0}" th:text="${unreadCount > 99 ? '99+' : unreadCount}">3</span>
+                </a>
+            </div>
+        </header>
+
+        <main class="content" layout:fragment="content"></main>
+    </div>
+</div>
+
+<!-- 서버 메시지 → 토스트 -->
+<template data-toast th:if="${adminMessage}" th:text="${adminMessage}"></template>
+<!-- undoUrl : 검수 통과·승인 직후 '실행 취소' 버튼이 이 주소로 POST 한다 -->
+<template data-toast th:if="${todoMessage}" th:text="${todoMessage}" th:attr="data-undo=${undoUrl}"></template>
+<template data-toast th:if="${reportMessage}" th:text="${reportMessage}" th:attr="data-undo=${undoUrl}"></template>
+<form id="undo-form" method="post" th:action="@{/}" hidden></form>
+<template data-toast th:if="${attendanceMessage}" th:text="${attendanceMessage}"></template>
+<template data-toast th:if="${leaveMessage}" th:text="${leaveMessage}"></template>
+<template data-toast="error" th:if="${errorMessage}" th:text="${errorMessage}"></template>
+
+<script th:src="@{/js/app.js}"></script>
+<th:block layout:fragment="script"></th:block>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>알림</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>InhaWorks</span><span class="sep">›</span><b>알림</b></nav>
+
+<main layout:fragment="content" class="content narrow">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">알림</h1>
+            <p class="page-sub" th:text="|안 읽은 알림 ${unreadCount}개 · 최근 50개|">안 읽은 알림</p>
+        </div>
+        <form th:action="@{/notifications/read-all}" method="post" class="inline" th:if="${unreadCount > 0}">
+            <button type="submit" class="btn">모두 읽음</button>
+        </form>
+    </div>
+
+    <section class="card">
+        <div th:if="${#lists.isEmpty(notificationList)}" class="empty"><b>알림이 없어요</b><span>할 일 검수, 결재, 댓글 멘션 소식이 여기에 와요</span></div>
+        <div class="list">
+            <!-- 누르면 읽음 처리하고 해당 화면으로 이동  -->
+            <form th:each="n : ${notificationList}" th:action="@{|/notifications/${n.id}/read|}" method="post" class="inline">
+                <button type="submit" class="list-item" th:style="|width:100%;border-left:0;border-right:0;border-top:0;background:none;text-align:left;font:inherit;cursor:pointer;${n.read ? 'opacity:.55' : ''}|">
+                    <span class="chip" th:classappend="${n.read} ? 'grey' : 'blue'" th:text="${n.type.label}">할 일</span>
+                    <span class="body"><b th:text="${n.title}">검수 통과</b><small th:text="${n.message}">내용</small></span>
+                    <small class="muted tnum nowrap" th:text="${#temporals.format(n.created, 'M.d HH:mm')}">11.19 10:20</small>
+                </button>
+            </form>
+        </div>
+    </section>
+</main>
+</body>
+</html>

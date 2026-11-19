@@ -1,0 +1,39 @@
+####################################
+# 테스트 설정 : H2 메모리 DB, 스케줄러·빠른 경로·시작 복구 끄기 (테스트가 직접 메서드를 불러 결과를 확인)
+####################################
+spring:
+  datasource:
+    driver-class-name: org.h2.Driver
+    # 테스트 컨텍스트마다 다른 DB (컨텍스트 캐시끼리 create-drop 으로 서로 지우지 않게)
+    url: jdbc:h2:mem:test-${random.uuid};MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+  web:
+    locale: ko_KR
+    locale-resolver: fixed
+
+app:
+  admin:
+    username: admin
+    password: admin1234
+  seed:
+    enabled: true
+    employee-password: "1234"
+  upload-dir: build/test-uploads
+  scheduling:
+    enabled: false
+  outbox:
+    fast-path: false
+    max-retries: 3
+    base-backoff-seconds: 0      # 테스트 : 실패하면 바로 다시 시도할 수 있게
+  batch:
+    catch-up-on-startup: false
+    catch-up-days: 3
+  security:
+    bulk-download-enabled: true

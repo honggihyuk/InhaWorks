@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${postId == null} ? '글쓰기' : '글 고치기'">글쓰기</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><a th:href="@{/board}">게시판</a><span class="sep">›</span>
+    <a th:href="@{|/board/${board.id}|}" th:text="${board.name}">사내 공지</a><span class="sep">›</span><b th:text="${postId == null} ? '글쓰기' : '글 고치기'">글쓰기</b></nav>
+
+<main layout:fragment="content" class="content narrow">
+    <div class="page-header"><div>
+        <div class="eyebrow" th:text="${board.name}">사내 공지</div>
+        <h1 class="page-title" th:text="${postId == null} ? '글쓰기' : '글 고치기'">글쓰기</h1>
+    </div></div>
+
+    <form th:action="${postId == null} ? @{|/board/${board.id}/write|} : @{|/board/post/${postId}/edit|}"
+          th:object="${postForm}" method="post" enctype="multipart/form-data" class="card stack" style="gap:16px" data-once>
+        <input type="hidden" th:field="*{submitToken}">
+        <div>
+            <label class="sr-only" for="title">제목</label>
+            <input type="text" th:field="*{title}" class="input title" placeholder="제목" maxlength="150" autofocus>
+            <p th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="field-error"></p>
+        </div>
+        <div class="field">
+            <label for="content">내용</label>
+            <textarea th:field="*{content}" class="textarea" rows="10" style="min-height:220px"
+                      th:placeholder="${board.issueBoard} ? '어떤 문제가 있었나요? (언제, 어디서, 어떻게)' : '내용'"></textarea>
+            <p th:if="${#fields.hasErrors('content')}" th:errors="*{content}" class="field-error"></p>
+        </div>
+        <div class="field"><label for="files">첨부 파일 (여러 개)</label>
+            <input id="files" type="file" name="files" multiple class="input file-input"></div>
+        <label class="round-check" sec:authorize="hasRole('ADMIN')">
+            <input type="checkbox" th:field="*{pinned}">공지로 맨 위에 고정 (전 직원에게 알림)
+        </label>
+        <div class="row" style="justify-content:flex-end">
+            <a th:href="${postId == null} ? @{|/board/${board.id}|} : @{|/board/post/${postId}|}" class="btn">취소</a>
+            <button type="submit" class="btn primary">올리기</button>
+        </div>
+    </form>
+</main>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${r.form.title}">보고서</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치">
+    <span sec:authorize="hasRole('ADMIN')">관리자</span><span sec:authorize="!hasRole('ADMIN')">우리 회사</span><span class="sep">›</span>
+    <a th:href="@{/approvals}">결재함</a><span class="sep">›</span><b th:text="|보고서 #${r.id}|">보고서</b>
+</nav>
+
+<main layout:fragment="content" class="content narrow">
+    <div data-md-content class="stack" style="gap:20px">
+        <section class="card">
+            <div class="row" style="justify-content:space-between;align-items:flex-start">
+                <div>
+                    <div class="muted small" th:text="|보고서 #${r.id} · ${r.form.category?.label}|">보고서 #3</div>
+                    <h2 style="font-size:22px;font-weight:700;letter-spacing:-.02em;margin-top:4px" th:text="${r.form.title}">주간 업무 보고</h2>
+                    <div class="person" style="margin-top:10px;font-weight:500">
+                        <span th:replace="~{fragments/ui :: avatar(${r.author}, 'sm')}"></span>
+                        <span th:text="|${r.author.displayName} · ${r.author.subtitle} · 제출 ${#temporals.format(r.submittedAt, 'yyyy.M.d HH:mm')}|">이서연</span>
+                    </div>
+                </div>
+                <span th:replace="~{fragments/ui :: chip(${r.status.name()}, ${r.status.label})}"></span>
+            </div>
+
+            <!-- 결재선 -->
+            <div class="approval-line" style="margin-top:18px" th:unless="${#lists.isEmpty(r.approvals)}">
+                <div class="approval-step" th:each="ap : ${r.approvals}"
+                     th:classappend="${r.status.open and ap.step == r.currentStep} ? 'current'">
+                    <small th:text="|${ap.step}단계|">1단계</small>
+                    <span class="who" th:text="${ap.approver.displayName}">김민수</span>
+                    <span><span th:replace="~{fragments/ui :: chip(${ap.decision.name()}, ${ap.decision.label})}"></span></span>
+                    <span class="memo" th:if="${ap.decidedAt != null}"
+                          th:text="|${#temporals.format(ap.decidedAt, 'M.d HH:mm')}${ap.comment != null ? ' · ' + ap.comment : ''}|">11.19 · 좋아요</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 승인 실행 취소 (10분 안, 다음 결재자가 처리하기 전) -->
+        <section th:if="${canUndoApprove}" class="card soft row" style="justify-content:space-between" aria-label="승인 취소">
+            <span>승인했어요. 다음 결재자가 처리하기 전, 10분 안에는 되돌릴 수 있어요.</span>
+            <form th:action="@{|/report/${r.id}/decide/undo|}" method="post" class="inline" data-once>
+                <button type="submit" class="btn">승인 취소</button>
+            </form>
+        </section>
+
+        <!-- 내 결재 차례 : 승인(의견 선택) / 반려(사유 필수, 확인 모달) -->
+        <section th:if="${canDecide}" class="card soft" aria-labelledby="decide-title">
+            <div class="card-head"><h2 id="decide-title" th:text="|${r.currentStep}단계 결재 차례예요|">결재 차례</h2></div>
+            <form th:action="@{|/report/${r.id}/decide|}" method="post" class="stack" style="gap:10px" data-once>
+                <label class="sr-only" th:for="|dc${r.id}|">의견</label>
+                <input th:id="|dc${r.id}|" type="text" name="comment" class="input" maxlength="500" placeholder="의견 (선택)">
+                <div class="row" style="justify-content:flex-end">
+                    <button type="submit" name="decision" value="reject" class="btn danger"
+                            data-confirm="이 보고서를 반려할까요?" th:attr="data-confirm-body=|${r.author.displayName} 님에게 반려 사유와 함께 알림이 가요.|"
+                            data-confirm-ok="반려" data-danger data-reason="comment" data-reason-label="반려 사유 (필수)">반려</button>
+                    <button type="submit" name="decision" value="approve" class="btn primary">승인</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card" aria-labelledby="answers-title">
+            <div class="card-head"><h2 id="answers-title">작성 내용</h2></div>
+            <div class="q-card" th:each="f : ${r.form.fields}" th:if="${!f.archived or r.getAnswer(f.id) != null}">
+                <div class="q"><span th:text="${f.label}">질문</span> <span class="chip outline" th:text="${f.type.label}">주관식</span></div>
+                <th:block th:replace="~{fragments/ui :: answerView(${f.type.name()}, ${r.getAnswer(f.id)})}"></th:block>
+            </div>
+        </section>
+
+        <div th:replace="~{fragments/ui :: comments(${comments}, @{|/report/${r.id}/comment|})}"></div>
+    </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 게시판 탭 : 전체(게시판 홈) + 볼 수 있는 게시판들 (navBoards) -->
+<nav th:fragment="tabs(activeId)" class="tabs-line" aria-label="게시판">
+    <a th:href="@{/board}" th:classappend="${activeId == null} ? 'active'" th:attr="aria-current=${activeId == null} ? 'page'">전체</a>
+    <a th:each="b : ${navBoards}" th:href="@{|/board/${b.id}|}" th:classappend="${activeId == b.id} ? 'active'"
+       th:attr="aria-current=${activeId == b.id} ? 'page'" th:text="${b.name}">사내 공지</a>
+</nav>
+</html>

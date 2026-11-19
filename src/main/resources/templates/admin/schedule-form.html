@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 관리자 근무 배정 폼 (주별 / 월별 공통)
+     배정한 뒤에도 고른 직원·시간·메모가 그대로 남고, 날짜는 다음 날로 넘어간다 (form : ScheduleFormState)
+     view = 'month' 이면 저장 뒤 월별 화면으로 돌아온다 -->
+<section th:fragment="form(view, who)" class="card" id="assign">
+    <div class="card-head"><h2>근무 배정</h2><span class="meta">저장하면 같은 직원으로 다음 날짜가 준비돼요</span></div>
+    <form th:action="@{/admin/schedule}" method="post" class="form-grid" style="align-items:end">
+        <input type="hidden" name="view" th:value="${view}">
+        <input type="hidden" name="who" th:value="${who}">
+        <div class="field"><label for="memberId">직원</label>
+            <select id="memberId" name="memberId" class="select" required>
+                <option th:each="m : ${members}" th:value="${m.id}" th:selected="${form.memberId == m.id}"
+                        th:text="|${m.displayName} (${m.workplace != null ? m.workplace.name : '-'})|">이서연</option>
+            </select></div>
+        <div class="field"><label for="sdate">날짜</label><input id="sdate" type="date" name="date" class="input" th:value="${form.date}" required></div>
+        <div class="field"><label for="st">시작</label><input id="st" type="time" name="startTime" class="input" th:value="${form.startTime}" required></div>
+        <div class="field"><label for="et">끝</label><input id="et" type="time" name="endTime" class="input" th:value="${form.endTime}" required></div>
+        <div class="field"><label for="memo">메모</label><input id="memo" type="text" name="memo" class="input" maxlength="100" placeholder="오픈조" th:value="${form.memo}"></div>
+        <button type="submit" class="btn primary">배정</button>
+    </form>
+</section>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>직원</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>직원·조직</span><span class="sep">›</span><b>직원</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">직원 · 조직</h1>
+            <p class="page-sub" th:text="|전체 ${#lists.size(memberList)}명 · 등록·수정·퇴사 처리, 권한(직원/매니저/관리자)을 정해요|">전체 4명</p>
+        </div>
+        <div class="actions"><a th:href="@{/admin/member/new}" class="btn primary">+ 직원 등록</a></div>
+    </div>
+
+    <nav class="segmented" aria-label="직원·조직">
+        <a th:href="@{/admin/members}" class="active" aria-current="page">직원</a>
+        <a th:href="@{/admin/org}">팀 · 근무지</a>
+    </nav>
+
+    <section class="card flush">
+        <div class="table-box">
+            <table class="t">
+                <thead><tr><th>이름</th><th>사용자ID</th><th>팀 · 근무지 · 직급</th><th>등록일</th><th style="min-width:220px">권한</th><th class="right"></th></tr></thead>
+                <tbody>
+                <tr th:each="m : ${memberList}" th:classappend="${m.active} ? '' : 'dim'">
+                    <td><span class="person"><span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span><span th:text="${m.displayName}">홍기혁</span></span>
+                        <span class="chip grey" th:unless="${m.active}">퇴사</span></td>
+                    <td class="mono" th:text="${m.username}">emp1</td>
+                    <td class="muted" th:text="${m.subtitle}">영업팀 · 인하점 · 사원</td>
+                    <td class="tnum muted" th:text="${m.created != null ? #temporals.format(m.created, 'yyyy-MM-dd') : '-'}">2026-11-11</td>
+                    <td>
+                        <form th:action="@{|/admin/member/${m.id}|}" method="post" class="row" style="gap:6px;flex-wrap:nowrap">
+                            <label class="sr-only" th:for="|role${m.id}|" th:text="|${m.displayName} 권한|">권한</label>
+                            <select th:id="|role${m.id}|" name="role" class="select" style="min-height:32px;padding:4px 10px">
+                                <option th:each="r : ${roles}" th:value="${r}" th:text="${r.label}"
+                                        th:selected="${m.role == r or (m.role == null and r.name() == 'USER')}">직원</option>
+                            </select>
+                            <button type="submit" class="btn sm soft">저장</button>
+                        </form>
+                    </td>
+                    <td class="right nowrap">
+                        <a th:href="@{|/admin/member/${m.id}/edit|}" class="btn sm ghost">수정</a>
+                        <form th:unless="${loginMember != null and loginMember.id == m.id}"
+                              th:action="@{|/admin/member/${m.id}/active|}" method="post" class="inline">
+                            <button th:if="${m.active}" type="submit" class="btn sm danger"
+                                    th:attr="data-confirm=|${m.displayName} 님을 퇴사 처리할까요?|"
+                                    data-confirm-body="로그인할 수 없고 새 할 일도 배정되지 않아요. 나중에 복직할 수 있어요." data-confirm-ok="퇴사 처리" data-danger>퇴사 처리</button>
+                            <button th:unless="${m.active}" type="submit" class="btn sm"
+                                    th:attr="data-confirm=|${m.displayName} 님을 복직 처리할까요?|" data-confirm-ok="복직">복직</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>
