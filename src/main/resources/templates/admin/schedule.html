@@ -30,7 +30,7 @@
     <section th:replace="~{admin/schedule-form :: form('week', null)}"></section>
 
     <section class="card flush">
-        <div class="table-box">
+        <div class="table-box scroll-x">
             <table class="t week">
                 <thead><tr><th>직원</th>
                     <th th:each="d : ${days}" th:classappend="${d == today} ? 'today'" th:text="${#temporals.format(d, 'M.d (E)')}">11.17 (월)</th></tr></thead>

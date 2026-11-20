@@ -37,8 +37,8 @@
                 <thead><tr><th>#</th><th>작성자</th><th>제출</th><th>상태</th><th>결재 단계</th><th class="right"></th></tr></thead>
                 <tbody>
                 <tr th:each="r : ${reports}">
-                    <td class="muted tnum" th:text="${r.id}">1</td>
-                    <td><span class="person"><span th:replace="~{fragments/ui :: avatar(${r.author}, 'sm')}"></span><span th:text="${r.author.displayName}">이서연</span></span></td>
+                    <td class="muted tnum" data-label="#" th:text="${r.id}">1</td>
+                    <td class="cell-title"><span class="person"><span th:replace="~{fragments/ui :: avatar(${r.author}, 'sm')}"></span><span th:text="${r.author.displayName}">이서연</span></span></td>
                     <td class="tnum" th:text="${#temporals.format(r.submittedAt, 'yyyy.M.d HH:mm')}">2026.11.17</td>
                     <td><span th:replace="~{fragments/ui :: chip(${r.status.name()}, ${r.status.label})}"></span></td>
                     <td class="tnum" th:text="${r.approvals.isEmpty() ? '-' : r.currentStep + ' / ' + r.approvals.size()}">1 / 2</td>

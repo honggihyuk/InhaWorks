@@ -50,9 +50,9 @@
                             <b>해결</b> · <span th:text="${#strings.abbreviate(p.resolution, 80)}">해결 방법</span></span>
                     </td>
                     <td th:if="${board.issueBoard}"><th:block th:if="${p.issueStatus != null}"><span th:replace="~{fragments/ui :: chip(${p.issueStatus.name()}, ${p.issueStatus.label})}"></span></th:block></td>
-                    <td class="nowrap" th:text="${p.author != null ? p.author.displayName : '알 수 없음'}">김민수</td>
-                    <td class="tnum muted nowrap" th:text="${#temporals.format(p.created, 'M.d HH:mm')}">11.19</td>
-                    <td class="right tnum muted" th:text="${p.viewCount}">3</td>
+                    <td class="nowrap cell-meta" data-label="" th:text="${p.author != null ? p.author.displayName : '알 수 없음'}">김민수</td>
+                    <td class="tnum muted nowrap cell-meta" data-label="" th:text="${#temporals.format(p.created, 'M.d HH:mm')}">11.19</td>
+                    <td class="right tnum muted cell-meta" data-label="조회" th:text="${p.viewCount}">3</td>
                 </tr>
                 </tbody>
             </table>

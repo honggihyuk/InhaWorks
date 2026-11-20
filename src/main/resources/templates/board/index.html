@@ -24,10 +24,10 @@
             <table class="t">
                 <tbody>
                 <tr th:each="p : ${pinned}" class="pinned">
-                    <td style="width:1%"><span class="chip solid">공지</span></td>
-                    <td><a class="title-cell" th:href="@{|/board/post/${p.id}|}" th:text="${p.title}">제목</a></td>
-                    <td class="muted" th:text="${p.board.name}">사내 공지</td>
-                    <td class="right tnum muted" th:text="${#temporals.format(p.created, 'M.d')}">11.19</td>
+                    <td style="width:1%" class="cell-auto" data-label=""><span class="chip solid">공지</span></td>
+                    <td class="cell-auto"><a class="title-cell" th:href="@{|/board/post/${p.id}|}" th:text="${p.title}">제목</a></td>
+                    <td class="muted cell-meta" data-label="" th:text="${p.board.name}">사내 공지</td>
+                    <td class="right tnum muted cell-meta" data-label="" th:text="${#temporals.format(p.created, 'M.d')}">11.19</td>
                 </tr>
                 </tbody>
             </table>

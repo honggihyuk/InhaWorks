@@ -9,6 +9,7 @@
 //  5) 폼 빌더 : [data-builder] 안의 '+ 항목 추가' → 종류 메뉴 → 항목 카드 추가 / 지우기 / 순서 번호
 //  6) 목록-상세 (결재함, 오늘 할 일) : [data-md] 안의 [data-md-item] 을 누르면 상세 화면의 [data-md-content] 를 옆에 불러온다
 //  7) 할 일 목록 세그먼트 필터 : [data-filter-tabs] + 행의 data-state
+//  8) 긴 목록 표 : 좁은 화면(또는 표가 다 안 들어갈 때) 카드로 바꾸기(.cards + data-label), 표 안 ⋯ 메뉴는 화면 기준(fixed)으로 띄우기
 (function () {
     'use strict';
 
@@ -186,6 +187,18 @@
     });
 
     // ---------- 3. ⋯ 메뉴 ----------
+    // 표 안의 메뉴는 CSS 에서 position: fixed (상자에 잘리거나 스크롤을 만들지 않게). 열 때 버튼 위치로 자리를 잡고,
+    // 아래 공간이 모자라면 버튼 위쪽으로 연다
+    function placeFixedMenu(menu, trigger) {
+        var r = trigger.getBoundingClientRect();
+        var h = menu.offsetHeight, gap = 6;
+        var below = window.innerHeight - r.bottom - gap - 8;
+        var up = h > below && r.top - gap - 8 > below;
+        menu.style.position = 'fixed';
+        menu.style.top = (up ? Math.max(8, r.top - gap - h) : r.bottom + gap) + 'px';
+        menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+        menu.style.transformOrigin = up ? 'bottom right' : 'top right';
+    }
     function closeMenus(except) {
         $$('.menu.open').forEach(function (m) {
             if (m !== except) {
@@ -202,13 +215,7 @@
             var menu = trigger.parentElement.querySelector('.menu');
             var open = !menu.classList.contains('open');
             closeMenus(menu);
-            if (open && trigger.closest('.table-box')) {
-                // 표 상자(가로 스크롤)에 잘리지 않도록 화면 기준으로 띄운다
-                var r = trigger.getBoundingClientRect();
-                menu.style.position = 'fixed';
-                menu.style.top = (r.bottom + 6) + 'px';
-                menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-            }
+            if (open && trigger.closest('.table-box')) placeFixedMenu(menu, trigger);
             menu.classList.toggle('open', open);
             trigger.setAttribute('aria-expanded', String(open));
             if (open) { var first = menu.querySelector('a, button:not([aria-disabled="true"])'); if (first) first.focus(); }
@@ -229,6 +236,7 @@
             }
         });
     }, true);
+    window.addEventListener('resize', function () { closeMenus(); });
 
     // ---------- 4. 서명 패드 / 사진 미리보기 / 시계 / 반복 주기 ----------
     function initSignature(root) {
@@ -406,7 +414,60 @@
         });
     }
 
+    // ---------- 8. 표 → 좁은 화면 카드 ----------
+    // 좁은 화면에서는 머리행을 숨기고 행마다 카드로 보여 준다(CSS). 각 칸 앞에 붙는 칸 이름(data-label)을 thead 에서 채우고,
+    // 첫 칸은 제목(cell-title), 머리 글자가 없는 칸은 동작 칸(cell-act), ⋯ 버튼이 든 칸은 오른쪽 위(cell-menu)로 표시한다.
+    // 템플릿에 data-label 이나 cell-* 를 직접 적은 칸은 그대로 둔다 (data-label="" 이면 이름 없이)
+    function initTableCards(root) {
+        $$('.table-box:not(.scroll-x) table.t', root).forEach(function (table) {
+            var heads = $$('thead th', table).map(function (th) { return th.textContent.replace(/\s+/g, ' ').trim(); });
+            $$('tbody tr', table).forEach(function (tr) {
+                var cells = $$(':scope > td', tr);
+                if (cells.length === 1 && cells[0].colSpan > 1) return;
+                var hasTitle = cells.some(function (td) { return td.classList.contains('cell-title'); });
+                cells.forEach(function (td, i) {
+                    if (td.querySelector('[data-menu-trigger]')) { td.classList.add('cell-menu'); tr.classList.add('has-menu'); return; }
+                    if (td.hasAttribute('data-label') || td.classList.contains('cell-title')) return;
+                    if (!hasTitle && i === 0) { td.classList.add('cell-title'); return; }
+                    var label = heads[i] || '';
+                    if (label) td.setAttribute('data-label', label);
+                    else if (heads.length) td.classList.add('cell-act');
+                });
+            });
+        });
+        fitTables();
+    }
+    // 900px 이하이거나, 표가 상자 폭에 다 들어가지 않으면 카드로 (넓은 화면에서 표를 잘라 내거나 가로 스크롤을 만들지 않게)
+    var NARROW = window.matchMedia('(max-width: 900px)');
+    function fitTables() {
+        $$('.table-box:not(.scroll-x)').forEach(function (box) {
+            var table = $('table.t', box);
+            if (!table) return;
+            if (NARROW.matches) { box.classList.add('cards'); return; }
+            box.classList.remove('cards');
+            if (table.scrollWidth > box.clientWidth + 1) box.classList.add('cards');
+        });
+    }
+    var fitTimer;
+    function queueFit() { clearTimeout(fitTimer); fitTimer = setTimeout(fitTables, 80); }
+    window.addEventListener('resize', queueFit);
+    // 창 크기 말고도 상자 폭이 바뀌면 다시 맞춘다 (높이 변화는 무시)
+    if (window.ResizeObserver) {
+        var boxWidths = new WeakMap();
+        var ro = new ResizeObserver(function (entries) {
+            var changed = entries.some(function (en) {
+                var w = Math.round(en.contentRect.width);
+                var prev = boxWidths.get(en.target);
+                boxWidths.set(en.target, w);
+                return prev !== undefined && prev !== w;
+            });
+            if (changed) queueFit();
+        });
+        $$('.table-box:not(.scroll-x)').forEach(function (box) { ro.observe(box); });
+    }
+
     function init(root) {
+        initTableCards(root);
         initSignature(root);
         initPhotoPreview(root);
         initClock(root);

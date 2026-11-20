@@ -36,28 +36,28 @@
                 <tr th:each="s : ${summaries}" th:with="t=${s.task()},
                         st=${!t.active ? 'paused' : (t.endDate != null and t.endDate.isBefore(today) ? 'ended' : 'running')}"
                     th:attr="data-state=${st}" th:classappend="${st != 'running'} ? 'dim'">
-                    <td>
+                    <td class="cell-title">
                         <a class="title-cell" th:href="@{|/admin/todo/${t.id}|}" th:text="${t.title}">매장 오픈 체크리스트</a>
                         <span class="chips" style="margin-top:6px">
                             <span class="chip outline" th:text="|항목 ${#lists.size(t.activeItems)}개|">항목 6개</span>
                             <span class="chip outline" th:unless="${#lists.isEmpty(t.guideFiles)}" th:text="|첨부 ${#lists.size(t.guideFiles)}|">첨부 1</span>
                         </span>
                     </td>
-                    <td>
+                    <td data-label="">
                         <span th:if="${st == 'running'}" class="chip blue">진행 중</span>
                         <span th:if="${st == 'paused'}" class="chip grey">일시중지</span>
                         <span th:if="${st == 'ended'}" class="chip grey">종료</span>
                     </td>
-                    <td>
+                    <td data-label="">
                         <div class="bar-cell">
                             <div class="bar" role="progressbar" th:aria-valuenow="${s.rate()}" aria-valuemin="0" aria-valuemax="100" th:aria-label="|${t.title} 오늘 진행률|">
                                 <span th:style="|width: ${s.rate()}%|"></span></div>
-                            <small th:text="|${s.rate()}% · ${s.done()}/${s.total()}|">50% · 3/6</small>
+                            <small><span class="m-only">오늘 </span><th:block th:text="|${s.rate()}% · ${s.done()}/${s.total()}|">50% · 3/6</th:block></small>
                         </div>
                     </td>
-                    <td th:text="${t.targetText}">인하점</td>
-                    <td th:text="${t.reviewer != null ? t.reviewer.displayName : '검수 없음'}">김민수</td>
-                    <td class="nowrap" th:text="${t.cycleText}">매일</td>
+                    <td class="cell-meta" data-label="배정" th:text="${t.targetText}">인하점</td>
+                    <td class="cell-meta" data-label="검수" th:text="${t.reviewer != null ? t.reviewer.displayName : '검수 없음'}">김민수</td>
+                    <td class="nowrap cell-meta" data-label="" th:text="${t.cycleText}">매일</td>
                     <td class="right">
                         <div class="menu-wrap">
                             <button type="button" class="icon-btn" data-menu-trigger aria-haspopup="menu" aria-expanded="false" th:aria-label="|${t.title} 메뉴|">
