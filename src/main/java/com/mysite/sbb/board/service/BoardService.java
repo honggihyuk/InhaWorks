@@ -203,6 +203,9 @@ public class BoardService {
         Post p = getPost(postId, me);
         if (!canEdit(p, me)) throw new BusinessException("글쓴이와 관리자만 지울 수 있어요.");
         Long boardId = p.getBoard().getId();
+        // 첨부 파일은 글이 실제로 지워진(커밋된) 뒤에 정리한다
+        p.getFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));
+        p.getResolutionFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));
         postCommentRepository.deleteByPostId(postId);
         postRepository.delete(p);
         return boardId;
@@ -239,6 +242,7 @@ public class BoardService {
         p.setResolution(resolution.strip());
         p.setResolvedAt(LocalDateTime.now());
         p.setResolvedBy(me);
+        p.getResolutionFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));   // 예전 해결 첨부 : 커밋 뒤 정리
         p.getResolutionFiles().clear();
         if (files != null) {
             for (MultipartFile f : files) {
@@ -261,6 +265,7 @@ public class BoardService {
         p.setResolution(null);
         p.setResolvedAt(null);
         p.setResolvedBy(null);
+        p.getResolutionFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));
         p.getResolutionFiles().clear();
         notifyAuthor(p, me, "해결을 취소했어요. 다시 처리 대기예요.");
     }

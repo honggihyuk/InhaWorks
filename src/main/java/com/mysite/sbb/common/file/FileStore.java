@@ -96,6 +96,29 @@ public class FileStore {
         });
     }
 
+    // 공개 파일(/uploads/xxx)을 커밋된 뒤에 지운다 : 롤백되면 그대로 남는다 (DB 가 아직 그 파일을 가리키므로)
+    public void deleteAfterCommit(String webPath) {
+        Path p = resolve(webPath);
+        if (p == null) return;
+        Runnable del = () -> {
+            try {
+                Files.deleteIfExists(p);
+            } catch (IOException e) {
+                log.warn("=======> 파일 삭제 실패 : {}", p, e);
+            }
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            del.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                del.run();
+            }
+        });
+    }
+
     private static String cleanName(String name) {
         String original = name == null ? "" : name;
         return original.substring(Math.max(original.lastIndexOf('/'), original.lastIndexOf('\\')) + 1);

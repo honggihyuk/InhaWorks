@@ -66,9 +66,14 @@ public class MeController {
                               Principal principal,
                               RedirectAttributes redirectAttributes) {
         try {
-            String path = fileStore.store(photo);
+            String path = fileStore.store(photo);      // 트랜잭션 밖에서 저장
             if (path != null) {
-                memberService.updatePhoto(principal.getName(), path);
+                try {
+                    memberService.updatePhoto(principal.getName(), path);
+                } catch (RuntimeException e) {
+                    fileStore.deleteAfterCommit(path);    // [보상] DB 반영이 실패하면 방금 올린 사진을 지운다 (트랜잭션 밖이라 바로 삭제)
+                    throw e;
+                }
             }
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());

@@ -14,6 +14,7 @@
 7. [전처리 : 파일 보상 삭제 · 중복 제출 방지 · 재시도](#7-전처리--파일-보상-삭제--중복-제출-방지--재시도)
 8. [장애 대응 표 (어디서 실패하면 무엇이 막아 주나)](#8-장애-대응-표)
 9. [보안](#9-보안)
+10. [방어 설계와 롤백 검증](#10-방어-설계와-롤백-검증)
 
 <br>
 
@@ -393,10 +394,16 @@ public TodoAssignment review(...)   // 검수 / 결재 / 출퇴근 / 휴가 승�
 | 푸시 버튼 더블클릭 | 알림 두 번 | Outbox idempotencyKey unique | `TodoAssignmentService.remind` |
 | 서버가 며칠 꺼짐 | 그 날짜 할 일 없음 | job_execution + 시작 시 catch-up | `BatchJobs.catchUp` |
 | 생성 배치 실패 | 그 날짜 할 일 없음 | FAILED 기록 → 10분마다 재시도, 모니터 '재실행' | `JobExecutionService` |
+| 배치 중 할 일 하나만 실패 | 그날 전체 배정이 롤백 | 할 일마다 새 트랜잭션(REQUIRES_NEW), 실패만 모아 `BatchPartialFailureException` → FAILED 기록, 재실행은 빠진 것만 | `TodoAssignmentGenerator.generate` |
 | 배치 두 번 실행 | 할 일 중복 | (task, member, date) unique + 이미 있는 직원 건너뛰기 | `TodoAssignmentGenerator` |
 | 두 검수자/결재자 동시 처리 | 상태 덮어쓰기 | `@Version` 낙관적 락 + `@Retryable` | `TodoAssignment`, `Report` |
 | DB 일시 장애·락 타임아웃 | 요청 실패 | `@Retryable` 100ms → 200ms → 400ms | 서비스 메서드 |
 | 파일 저장 후 DB 롤백 | 고아 파일 | TransactionSynchronization 보상 삭제 | `FileStore` |
+| 파일 교체·삭제 후 DB 롤백 | 예전 파일이 먼저 지워져 깨진 링크 | 예전 파일은 **커밋된 뒤에만** 지움 (`afterCommit`) | `FileStore.deleteAfterCommit`, `deletePrivateAfterCommit` |
+| 해결 취소·글 삭제 | 첨부가 디스크에 고아로 남음 | 커밋 뒤 첨부 정리 | `BoardService` |
+| 프로필 사진 저장 뒤 DB 반영 실패 | 고아 사진 | 컨트롤러에서 새 파일 즉시 삭제(트랜잭션 밖 보상), 예전 사진은 커밋 뒤 삭제 | `MeController`, `MemberService.updatePhoto` |
+| 재시도까지 다 실패한 동시 수정 | 500 화면, 무엇이 저장됐는지 모름 | 409 "다른 사람이 먼저 수정했어요 (저장되지 않았어요)" | `GlobalExceptionHandler` |
+| 예상하지 못한 오류 | 스택 트레이스·SQL 노출 | 안전한 안내 + 오류 번호(로그와 같은 번호), 화면 그리기 오류는 단독 `error.html` | `GlobalExceptionHandler`, `templates/error.html` |
 | 제출 더블클릭·새로고침 재전송 | 중복 제출 | submitToken (unique) | 할 일·보고서·게시글 |
 | 출근 두 번 | 기록 두 줄 | (member, date) unique | `Attendance` |
 
@@ -414,3 +421,46 @@ public TodoAssignment review(...)   // 검수 / 결재 / 출퇴근 / 휴가 승�
 | 세부 권한 | 검수자·결재자 본인인지 서비스에서 확인 | `canReview`, `canDecide` |
 | 업로드 | 확장자 허용 목록, 파일 이름은 UUID, `/uploads/**` 도 로그인 필요 | `FileStore` |
 | 인사 서류 | 공개 폴더 밖(`app.private-dir`, 기본 `private-uploads/`)에 저장, `/hr/docs/{id}/file` 에서 열람 권한(관리자 / 본인 / 같은 팀 매니저 = 리더) 확인 후 `no-store` 로 내려줌. 거부는 로그로 남김. 교체·삭제한 파일은 커밋 뒤 지움, 롤백되면 새 파일을 지움(보상) | `HrService.canViewType`, `FileStore.storePrivate` |
+
+<br>
+
+## 10. 방어 설계와 롤백 검증
+
+### 방어 원칙
+
+1. **원자성** : 한 요청의 쓰기는 서비스 메서드 하나(`@Transactional`)에서 끝낸다. 업무 저장과 알림(Outbox 행)은 같은 트랜잭션이라 함께 커밋되거나 함께 롤백된다
+2. **사전 검증(Guard)** : 저장 전에 규칙을 확인하고 `BusinessException` 으로 멈춘다 (끝 ≤ 시작, 소속 직원이 있는 정책 삭제, 권한 없는 서류 열람·제출, 이미 해결된 이슈 등). 아무것도 쓰기 전에 실패하므로 되돌릴 것이 없다
+3. **파일은 DB 를 따라간다** : 새 파일은 롤백되면 지우고(보상), 예전 파일은 커밋된 뒤에만 지운다. 인사 서류는 공개 폴더 밖에 둔다
+4. **건별 격리** : 배치는 할 일마다 따로 커밋하고, 실패한 것만 기록해 다시 돌린다 (멱등이라 다시 돌려도 중복 없음)
+5. **동시성** : `@Version` 낙관적 락 + `@Retryable`, 끝내 충돌하면 409 안내 (변경 없음)
+6. **안전한 실패 응답** : 사용자에게는 무엇을 하면 되는지와 "저장되지 않았어요"만, 자세한 내용은 오류 번호와 함께 로그에
+
+### 전역 예외 응답 (`GlobalExceptionHandler`)
+
+| 예외 | 상태 | 화면 안내 |
+|---|---|---|
+| `BusinessException`, `IllegalArgumentException` | 400 | 서비스가 정한 메시지 그대로 |
+| `EntityNotFoundException`, `NoResourceFoundException` | 404 | 찾을 수 없어요 / 없는 화면이에요 |
+| `OptimisticLockingFailureException` | 409 | 다른 사람이 먼저 수정했어요 (저장되지 않았어요) + 오류 번호 |
+| `DataIntegrityViolationException` | 409 | 이미 처리됐거나 같은 내용이 있어요 + 오류 번호 |
+| `MaxUploadSizeExceededException` | 413 | 파일 하나 10MB, 한 번에 60MB |
+| 잘못된 값·빠진 값·메서드 | 400 | 요청이 올바르지 않아요 |
+| 그 밖의 모든 예외 | 500 | 잠시 문제가 생겼어요 (반영되지 않았어요) + 오류 번호, 로그에 전체 스택 |
+| 권한·로그인 예외 | — | 삼키지 않고 Spring Security 로 넘김 |
+
+### 롤백 검증 테스트 (`RollbackVerificationTest`, 중간에 예외를 넣어 확인)
+
+| # | 시나리오 | 기대 | 결과 |
+|---|---|---|---|
+| ① | 인사 서류 첫 제출 직후 예외 | 서류 행 없음, 비공개 파일 없음 | 통과 |
+| ② | 인사 서류 교체 직후 예외 / 정상 교체 | 예전 행·예전 파일 유지, 새 파일 삭제 / 정상이면 예전 파일만 삭제 | 통과 |
+| ③ | 이슈 해결 등록 중 두 번째 첨부가 잘못된 형식 | 상태·해결 내용 그대로, 먼저 저장된 첨부 삭제, 알림(Outbox) 없음 | 통과 |
+| ④ | 해결 취소 커밋 | 해결 첨부 파일 정리 (고아 없음) | 통과 |
+| ⑤ | 스케줄 배정 직후 예외 | 스케줄 없음, 배정 알림(Outbox) 없음 | 통과 |
+| ⑥ | 끝 ≤ 시작 배정 | 저장 전에 거부, 아무 행도 없음 | 통과 |
+| ⑦ | 소속 직원이 있는 근무 정책 삭제 | 거부, 정책·근무 유형 그대로 | 통과 |
+| ⑧ | 같은 출퇴근 기록을 두 곳에서 수정 | 늦은 쪽 낙관적 락 충돌, 먼저 저장한 값만 남음 | 통과 |
+| ⑨ | 배치 중 할 일 하나만 장애 | 나머지 할 일 배정은 커밋, 실패만 알림, 재실행은 빠진 것만·중복 없음 | 통과 |
+| ⑩ | 잘못된 주소 · 없는 직원 | 400 / 404 안전 안내, 예외 이름·스택 없음 | 통과 |
+
+함께 도는 기존 검증 : `OutboxRetryTest`(재시도 → DEAD → 재처리, 알림 멱등), `TodoAssignmentGeneratorTest`(배치 멱등·catch-up), `LoginPageSeparationTest`(로그인 계정 종류 분리).

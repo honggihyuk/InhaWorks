@@ -24,6 +24,7 @@ public class MemberService {
     private static final Pattern MENTION = Pattern.compile("@([A-Za-z0-9_.\\-]{2,30})");
 
     private final MemberRepository memberRepository;
+    private final com.mysite.sbb.common.file.FileStore fileStore;
 
     // 로그인한 사용자 아이디(Principal.getName())로 직원 찾기
     public Member getMember(String username) {
@@ -66,8 +67,12 @@ public class MemberService {
 
     // 내 정보 : 프로필 사진 변경 / 삭제 (path 가 null 이면 삭제)
     @Transactional
+    // 예전 사진은 커밋된 뒤에 지운다 (롤백되면 예전 사진을 계속 써야 하므로)
     public void updatePhoto(String username, String path) {
-        getMember(username).setPhotoPath(path);
+        Member m = getMember(username);
+        String old = m.getPhotoPath();
+        m.setPhotoPath(path);
+        if (old != null && !old.equals(path)) fileStore.deleteAfterCommit(old);
     }
 
     // 빈 칸으로 온 선택 항목은 null 로 저장한다 (이메일은 unique 라서 빈 문자열이 여러 개면 겹친다)

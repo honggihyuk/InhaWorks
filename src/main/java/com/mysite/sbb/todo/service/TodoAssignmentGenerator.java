@@ -1,5 +1,9 @@
 package com.mysite.sbb.todo.service;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+import java.util.ArrayList;
 import com.mysite.sbb.member.entity.Member;
 import com.mysite.sbb.member.repository.MemberRepository;
 import com.mysite.sbb.organization.entity.Workplace;
@@ -31,15 +35,48 @@ public class TodoAssignmentGenerator {
     private final TodoTaskRepository todoTaskRepository;
     private final TodoAssignmentRepository todoAssignmentRepository;
     private final MemberRepository memberRepository;
+    private final PlatformTransactionManager transactionManager;
 
     // 그 날짜의 모든 할 일 → 만든 개수
-    @Transactional
+    // [방어] 할 일마다 새 트랜잭션(REQUIRES_NEW) : 한 할 일에서 오류가 나도 다른 할 일의 배정은 커밋된다 (건별 실패 격리)
+    //  실패한 할 일이 있으면 마지막에 BatchPartialFailureException → 배치 기록(JobExecution)이 FAILED 로 남고
+    //  복구(catch-up)·관리자 재실행이 다시 돌린다. 이미 만든 배정은 멱등이라 다시 돌려도 중복되지 않는다
     public int generate(LocalDate date) {
+        TransactionTemplate each = new TransactionTemplate(transactionManager);
+        each.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        TransactionTemplate read = new TransactionTemplate(transactionManager);
+        read.setReadOnly(true);
+        List<Long> taskIds = read.execute(s -> todoTaskRepository.findActiveOn(date).stream().map(TodoTask::getId).toList());
         int created = 0;
-        for (TodoTask task : todoTaskRepository.findActiveOn(date)) {
-            created += generateFor(task, date);
+        List<String> failed = new ArrayList<>();
+        for (Long taskId : taskIds == null ? List.<Long>of() : taskIds) {
+            try {
+                Integer n = each.execute(s -> generateFor(todoTaskRepository.findById(taskId).orElseThrow(), date));
+                created += n == null ? 0 : n;
+            } catch (RuntimeException e) {
+                log.error("=======> 할 일 #{} {} 배정 실패 (다른 할 일은 계속) : {}", taskId, date, e.toString());
+                failed.add("#" + taskId);
+            }
+        }
+        if (!failed.isEmpty()) {
+            throw new BatchPartialFailureException("할 일 " + failed.size() + "건 배정 실패 " + failed
+                    + " (나머지 " + created + "건은 만들었어요. 다시 실행하면 빠진 것만 채워요)", created);
         }
         return created;
+    }
+
+    // 일부 할 일만 실패했을 때 : 만든 개수를 함께 알린다
+    public static class BatchPartialFailureException extends RuntimeException {
+        private final int created;
+
+        public BatchPartialFailureException(String message, int created) {
+            super(message);
+            this.created = created;
+        }
+
+        public int getCreated() {
+            return created;
+        }
     }
 
     @Transactional

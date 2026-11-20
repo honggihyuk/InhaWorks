@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<!-- [방어] 컨트롤러 밖(화면 그리기, 필터 등)에서 난 오류 : Spring Boot 기본 오류 화면 대신 이 화면.
+     레이아웃·로그인 정보를 쓰지 않는 단독 화면이라 여기서 다시 오류가 나지 않는다. 스택 트레이스·예외 메시지는 보여 주지 않는다 -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>오류 · InhaWorks</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body class="ui auth-page">
+<div class="auth-scrim" style="background:var(--lb)">
+<main class="auth-card" role="alert">
+    <div class="brand"><span class="brand-mark">I</span>InhaWorks</div>
+    <h1 class="auth-title" th:text="${status == 404} ? '없는 화면이에요' : (${status == 403} ? '볼 수 없는 화면이에요' : '잠시 문제가 생겼어요')">잠시 문제가 생겼어요</h1>
+    <p class="muted" th:text="${status == 404} ? '주소를 확인해 주세요.' : (${status == 403} ? '권한이 있는 계정으로 로그인해 주세요.' : '저장 중이었다면 반영되지 않았어요. 잠시 뒤 다시 시도해 주세요.')">잠시 뒤 다시 시도해 주세요.</p>
+    <p class="faint small mono" th:if="${status != null}" th:text="|오류 코드 ${status}|">오류 코드 500</p>
+    <a th:href="@{/}" class="btn primary lg block">처음 화면으로</a>
+</main>
+</div>
+</body>
+</html>

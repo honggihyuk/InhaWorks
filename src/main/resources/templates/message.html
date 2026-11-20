@@ -6,11 +6,12 @@
 <body>
 <nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>InhaWorks</span><span class="sep">›</span><b>안내</b></nav>
 
-<!-- 업무 오류 안내 (GlobalExceptionHandler) -->
+<!-- 오류 안내 (GlobalExceptionHandler) : 업무 오류 · 없음 · 동시 수정 · 용량 초과 · 예상 못한 오류. 스택 트레이스는 보이지 않는다 -->
 <main layout:fragment="content" class="content narrow">
     <section class="card empty" role="alert">
         <b>처리할 수 없어요</b>
         <span th:text="${message}">이미 처리된 할 일이에요.</span>
+        <span th:if="${requestId != null}" class="faint small mono" style="margin-top:8px">오류 번호 <th:block th:text="${requestId}">a1b2c3d4</th:block> · 문의할 때 알려 주세요</span>
         <div class="row" style="justify-content:center;margin-top:20px">
             <a href="javascript:history.back()" class="btn">뒤로</a>
             <a th:href="@{/}" class="btn primary">홈으로</a>
