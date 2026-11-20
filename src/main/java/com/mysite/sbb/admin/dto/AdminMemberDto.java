@@ -38,6 +38,15 @@ public class AdminMemberDto {
 
     private Long workPolicyId;              // 근무 정책 (근무제)
 
+    // 인사 정보
+    private com.mysite.sbb.hr.constant.EmploymentType employmentType;
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+    private java.time.LocalDate hireDate;
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+    private java.time.LocalDate contractEndDate;
+    @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+    private java.time.LocalDate returnDate;
+
     @Size(max = 30)
     private String position;                // 직급
 
@@ -58,6 +67,10 @@ public class AdminMemberDto {
         dto.setTeamId(m.getTeam() == null ? null : m.getTeam().getId());
         dto.setWorkplaceId(m.getWorkplace() == null ? null : m.getWorkplace().getId());
         dto.setWorkPolicyId(m.getWorkPolicy() == null ? null : m.getWorkPolicy().getId());
+        dto.setEmploymentType(m.getEmploymentType());
+        dto.setHireDate(m.getHireDate());
+        dto.setContractEndDate(m.getContractEndDate());
+        dto.setReturnDate(m.getReturnDate());
         dto.setPosition(m.getPosition());
         dto.setPhone(m.getPhone());
         dto.setRole(m.getRole() == null ? MemberRole.USER : m.getRole());

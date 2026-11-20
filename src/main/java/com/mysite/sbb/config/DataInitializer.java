@@ -54,6 +54,7 @@ public class DataInitializer implements CommandLineRunner {
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
     private final WorkPolicyService workPolicyService;
+    private final com.mysite.sbb.hr.service.HrService hrService;
 
     @Value("${app.admin.username:admin}")
     private String adminUsername;
@@ -84,6 +85,8 @@ public class DataInitializer implements CommandLineRunner {
         if (demo) seed(admin);
         // 근무 정책 : 없으면 기본 정책(고정 근무제 · 스케줄 근무제)을 만들고 정책이 없는 직원에게 배정 (기존 데이터 호환)
         workPolicyService.ensureDefaults(demo);
+        // 인사 서류 종류 : 없으면 기본 7개 (근로계약서, 통장 사본, 주민등록 등본, 개인정보 동의서, 가족관계증명서, 보건증, 급여 정보)
+        hrService.ensureDefaultDocTypes();
     }
 
     private void seed(Member admin) {

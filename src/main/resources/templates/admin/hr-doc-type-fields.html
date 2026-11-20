@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 인사 서류 종류 입력 칸 (추가 / 고치기 공통). t = HrDocType 또는 null -->
+    <th:block th:fragment="fields(t)">
+        <div class="grid grid-2">
+            <div class="field"><label th:for="|dn${t?.id}|">서류 이름</label>
+                <input th:id="|dn${t?.id}|" type="text" name="name" class="input" maxlength="40" required placeholder="통장 사본" th:value="${t?.name}"></div>
+            <div class="field"><label th:for="|dd${t?.id}|">설명 (선택)</label>
+                <input th:id="|dd${t?.id}|" type="text" name="description" class="input" maxlength="200" placeholder="급여 받을 통장 첫 장" th:value="${t?.description}"></div>
+        </div>
+        <div class="field"><span class="label">열람 권한 (관리자는 항상 볼 수 있어요)</span>
+            <div class="toggle-chips" role="radiogroup" aria-label="열람 권한">
+                <label th:each="s : ${scopes}"><input type="radio" name="scope" th:value="${s}" th:checked="${t != null ? t.scope == s : s.name() == 'SELF_ADMIN'}">
+                    <span th:text="${s.label}">본인 · 관리자</span></label>
+            </div></div>
+        <div class="row" style="gap:20px">
+            <label class="round-check"><input type="checkbox" name="required" value="true" th:checked="${t != null and t.required}">필수 서류</label>
+            <label class="round-check"><input type="checkbox" name="employeeUpload" value="true" th:checked="${t == null or t.employeeUpload}">직원이 내 정보에서 직접 제출</label>
+        </div>
+        <p class="faint small">‘관리자만’ 서류는 직원이 낼 수 없어요. 리더 = 같은 팀의 매니저예요.</p>
+    </th:block>
+</html>

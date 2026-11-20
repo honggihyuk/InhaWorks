@@ -4,9 +4,9 @@ import lombok.Getter;
 
 @Getter
 public enum IssueStatus {
-    OPEN("미해결", "st-red"),
-    IN_PROGRESS("처리중", "st-orange"),
-    RESOLVED("해결", "st-green");
+    OPEN("처리 대기", "st-red"),
+    IN_PROGRESS("처리 중", "st-orange"),
+    RESOLVED("해결 완료", "st-green");
 
     private final String label;
     private final String css;

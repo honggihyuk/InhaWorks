@@ -1,5 +1,7 @@
 package com.mysite.sbb.board.service;
 
+import com.mysite.sbb.board.constant.IssueCategory;
+import com.mysite.sbb.board.dto.IssueSummary;
 import com.mysite.sbb.board.constant.BoardType;
 import com.mysite.sbb.board.constant.IssueStatus;
 import com.mysite.sbb.board.dto.PostForm;
@@ -85,6 +87,35 @@ public class BoardService {
                 : postRepository.findByBoardIdAndIssueStatusOrderByPinnedDescIdDesc(board.getId(), status);
     }
 
+    // 이슈 게시판 목록 : 상태 · 지점 · 분류로 거르기 (고정 글 먼저, 최신순)
+    @Transactional(readOnly = true)
+    public List<Post> getIssuePosts(Board board, IssueStatus status, Long workplaceId, IssueCategory category) {
+        return postRepository.findByBoardIdOrderByPinnedDescIdDesc(board.getId()).stream()
+                .filter(p -> status == null || p.getIssueStatus() == status
+                        || (status == IssueStatus.OPEN && p.getIssueStatus() == IssueStatus.IN_PROGRESS))
+                .filter(p -> workplaceId == null || (p.getWorkplace() != null && p.getWorkplace().getId().equals(workplaceId)))
+                .filter(p -> category == null || p.getCategory() == category)
+                .toList();
+    }
+
+    // 이슈 통계 (지점 필터 반영) : 처리 대기(처리 중 포함) 건수·미해결 기간, 해결 완료 건수·해결 소요 기간
+    @Transactional(readOnly = true)
+    public IssueSummary issueSummary(Board board, Long workplaceId) {
+        List<Post> all = getIssuePosts(board, null, workplaceId, null);
+        List<Post> open = all.stream().filter(p -> p.getIssueStatus() != IssueStatus.RESOLVED).toList();
+        List<Post> done = all.stream().filter(p -> p.getIssueStatus() == IssueStatus.RESOLVED).toList();
+        long inProgress = open.stream().filter(p -> p.getIssueStatus() == IssueStatus.IN_PROGRESS).count();
+        return new IssueSummary(open.size(), inProgress, avg(open), max(open), done.size(), avg(done), max(done));
+    }
+
+    private static double avg(List<Post> ps) {
+        return ps.isEmpty() ? 0 : Math.round(ps.stream().mapToDouble(Post::getElapsedDays).average().orElse(0) * 10) / 10.0;
+    }
+
+    private static double max(List<Post> ps) {
+        return ps.stream().mapToDouble(Post::getElapsedDays).max().orElse(0);
+    }
+
     // 이슈 게시판 통계 : 상태별 개수 + 해결률
     @Transactional(readOnly = true)
     public Map<IssueStatus, Long> issueStats(Board board) {
@@ -134,6 +165,8 @@ public class BoardService {
                 .content(form.getContent())
                 .pinned(me.isAdmin() && form.isPinned())
                 .issueStatus(board.isIssueBoard() ? IssueStatus.OPEN : null)
+                .category(board.isIssueBoard() ? (form.getCategory() == null ? IssueCategory.ETC : form.getCategory()) : null)
+                .workplace(board.isIssueBoard() ? issueWorkplace(form, me) : null)
                 .submitToken(form.getSubmitToken())
                 .created(LocalDateTime.now())
                 .build();
@@ -157,6 +190,10 @@ public class BoardService {
         p.setTitle(form.getTitle().strip());
         p.setContent(form.getContent());
         if (me.isAdmin()) p.setPinned(form.isPinned());
+        if (p.getBoard().isIssueBoard()) {
+            p.setCategory(form.getCategory() == null ? IssueCategory.ETC : form.getCategory());
+            p.setWorkplace(issueWorkplace(form, me));
+        }
         p.setUpdated(LocalDateTime.now());
         addFiles(p, files);
         return p;
@@ -177,7 +214,77 @@ public class BoardService {
         p.setPinned(!p.isPinned());
     }
 
-    // 이슈 상태 바꾸기 : 해결로 바꿀 때는 해결 방법이 꼭 있어야 한다
+    // 이슈 지점 : 고르지 않으면 글쓴이의 근무지
+    private com.mysite.sbb.organization.entity.Workplace issueWorkplace(PostForm form, Member me) {
+        var w = organizationService.getWorkplace(form.getWorkplaceId());
+        return w != null ? w : me.getWorkplace();
+    }
+
+    // ---------- 이슈 해결 흐름 : 처리 대기 → (처리 시작) → 해결 등록 → (해결 취소) ----------
+
+    // 처리 시작 : 누가 맡았는지 알 수 있게 상태만 바꾼다
+    public void startIssue(Long postId, Member me) {
+        Post p = issue(postId, me);
+        if (p.getIssueStatus() != IssueStatus.OPEN) throw new BusinessException("처리 대기 중인 이슈만 시작할 수 있어요.");
+        p.setIssueStatus(IssueStatus.IN_PROGRESS);
+        notifyAuthor(p, me, "처리를 시작했어요.");
+    }
+
+    // 해결 등록 : 해결 내용(필수) + 첨부, 해결자·시각 기록, 글쓴이에게 알림
+    public void resolveIssue(Long postId, Member me, String resolution, List<MultipartFile> files) {
+        Post p = issue(postId, me);
+        if (p.getIssueStatus() == IssueStatus.RESOLVED) throw new BusinessException("이미 해결된 이슈예요.");
+        if (resolution == null || resolution.isBlank()) throw new BusinessException("해결 내용을 적어 주세요.");
+        p.setIssueStatus(IssueStatus.RESOLVED);
+        p.setResolution(resolution.strip());
+        p.setResolvedAt(LocalDateTime.now());
+        p.setResolvedBy(me);
+        p.getResolutionFiles().clear();
+        if (files != null) {
+            for (MultipartFile f : files) {
+                FileRef ref = fileStore.storeAttachment(f);
+                if (ref != null) p.getResolutionFiles().add(ref);
+            }
+        }
+        notifyAuthor(p, me, "해결을 등록했어요.");
+    }
+
+    // 해결 취소 : 해결한 사람 · 글쓴이 · 매니저 · 관리자. 해결 내용과 첨부를 비우고 처리 대기로 되돌린다
+    public void reopenIssue(Long postId, Member me) {
+        Post p = issue(postId, me);
+        if (p.getIssueStatus() != IssueStatus.RESOLVED) throw new BusinessException("해결된 이슈만 취소할 수 있어요.");
+        boolean allowed = me.isAdmin() || me.isManager()
+                || (p.getResolvedBy() != null && p.getResolvedBy().getId().equals(me.getId()))
+                || (p.getAuthor() != null && p.getAuthor().getId().equals(me.getId()));
+        if (!allowed) throw new BusinessException("해결한 사람, 글쓴이, 매니저, 관리자만 해결을 취소할 수 있어요.");
+        p.setIssueStatus(IssueStatus.OPEN);
+        p.setResolution(null);
+        p.setResolvedAt(null);
+        p.setResolvedBy(null);
+        p.getResolutionFiles().clear();
+        notifyAuthor(p, me, "해결을 취소했어요. 다시 처리 대기예요.");
+    }
+
+    public boolean canReopen(Post p, Member me) {
+        return p.getIssueStatus() == IssueStatus.RESOLVED && (me.isAdmin() || me.isManager()
+                || (p.getResolvedBy() != null && p.getResolvedBy().getId().equals(me.getId()))
+                || (p.getAuthor() != null && p.getAuthor().getId().equals(me.getId())));
+    }
+
+    private Post issue(Long postId, Member me) {
+        Post p = getPost(postId, me);
+        if (!p.getBoard().isIssueBoard()) throw new BusinessException("이슈 게시판 글이 아니에요.");
+        return p;
+    }
+
+    private void notifyAuthor(Post p, Member me, String what) {
+        if (p.getAuthor() != null && !p.getAuthor().getId().equals(me.getId())) {
+            outboxService.notify(List.of(p.getAuthor()), NotificationType.BOARD, "이슈 " + p.getIssueStatus().getLabel() + " : " + p.getTitle(),
+                    me.getDisplayName() + " 님이 " + what, "/board/post/" + p.getId(), "Post", p.getId(), null);
+        }
+    }
+
+    // 이슈 상태 바꾸기 (예전 폼 호환) : 해결로 바꿀 때는 해결 방법이 꼭 있어야 한다
     public void changeIssue(Long postId, Member me, IssueStatus status, String resolution) {
         Post p = getPost(postId, me);
         if (!p.getBoard().isIssueBoard()) throw new BusinessException("이슈 게시판 글이 아니에요.");
@@ -187,6 +294,7 @@ public class BoardService {
         p.setIssueStatus(status);
         if (resolution != null && !resolution.isBlank()) p.setResolution(resolution.strip());
         p.setResolvedAt(status == IssueStatus.RESOLVED ? LocalDateTime.now() : null);
+        p.setResolvedBy(status == IssueStatus.RESOLVED ? me : null);
         if (p.getAuthor() != null && !p.getAuthor().getId().equals(me.getId())) {
             outboxService.notify(List.of(p.getAuthor()), NotificationType.BOARD, "이슈 " + status.getLabel() + " : " + p.getTitle(),
                     me.getDisplayName() + " 님이 상태를 '" + status.getLabel() + "' 로 바꿨어요.", "/board/post/" + p.getId(),

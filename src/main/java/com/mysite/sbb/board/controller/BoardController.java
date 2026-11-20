@@ -1,5 +1,7 @@
 package com.mysite.sbb.board.controller;
 
+import com.mysite.sbb.board.constant.IssueCategory;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import com.mysite.sbb.board.constant.IssueStatus;
 import com.mysite.sbb.board.dto.PostForm;
 import com.mysite.sbb.board.entity.Board;
@@ -28,6 +30,7 @@ public class BoardController {
 
     private final BoardService boardService;
     private final MemberService memberService;
+    private final com.mysite.sbb.organization.service.OrganizationService organizationService;
 
     @GetMapping
     public String boards(Principal principal, Model model) {
@@ -39,13 +42,25 @@ public class BoardController {
         return "board/index";
     }
 
+    // 이슈 & 해결 게시판은 지점(place) · 분류(category) · 상태(status) 필터와 통계를 함께 보여 준다
     @GetMapping("/{id}")
     public String posts(@PathVariable("id") Long id, @RequestParam(value = "status", required = false) IssueStatus status,
+                        @RequestParam(value = "place", required = false) Long place,
+                        @RequestParam(value = "category", required = false) IssueCategory category,
                         Principal principal, Model model) {
         Member me = me(principal);
         Board board = boardService.getBoard(id, me);
         model.addAttribute("board", board);
-        model.addAttribute("posts", boardService.getPosts(board, status));
+        if (board.isIssueBoard()) {
+            model.addAttribute("posts", boardService.getIssuePosts(board, status, place, category));
+            model.addAttribute("summary", boardService.issueSummary(board, place));
+            model.addAttribute("workplaces", organizationService.getWorkplaces());
+            model.addAttribute("categories", IssueCategory.values());
+            model.addAttribute("place", place);
+            model.addAttribute("category", category);
+        } else {
+            model.addAttribute("posts", boardService.getPosts(board, status));
+        }
         model.addAttribute("status", status);
         model.addAttribute("issueStatuses", IssueStatus.values());
         if (board.isIssueBoard()) {
@@ -57,9 +72,21 @@ public class BoardController {
         return "board/list";
     }
 
+    @ModelAttribute("issueCategories")
+    public IssueCategory[] issueCategories() {
+        return IssueCategory.values();
+    }
+
+    @ModelAttribute("issueWorkplaces")
+    public java.util.List<com.mysite.sbb.organization.entity.Workplace> issueWorkplaces() {
+        return organizationService.getWorkplaces();
+    }
+
     @GetMapping("/{id}/write")
     public String writeForm(@PathVariable("id") Long id, PostForm postForm, Principal principal, Model model) {
-        model.addAttribute("board", boardService.getBoard(id, me(principal)));
+        Member me = me(principal);
+        if (postForm.getWorkplaceId() == null && me.getWorkplace() != null) postForm.setWorkplaceId(me.getWorkplace().getId());
+        model.addAttribute("board", boardService.getBoard(id, me));
         model.addAttribute("postId", null);
         return "board/form";
     }
@@ -84,6 +111,7 @@ public class BoardController {
         Post post = boardService.read(id, me);
         model.addAttribute("post", post);
         model.addAttribute("canEdit", boardService.canEdit(post, me));
+        model.addAttribute("canReopen", boardService.canReopen(post, me));
         model.addAttribute("comments", boardService.getComments(id));
         model.addAttribute("issueStatuses", IssueStatus.values());
         return "board/detail";
@@ -128,6 +156,33 @@ public class BoardController {
     public String issue(@PathVariable("id") Long id, @RequestParam("status") IssueStatus status,
                         @RequestParam(value = "resolution", required = false) String resolution, Principal principal) {
         boardService.changeIssue(id, me(principal), status, resolution);
+        return "redirect:/board/post/" + id;
+    }
+
+    @PostMapping("/post/{id}/issue/start")
+    public String startIssue(@PathVariable("id") Long id, Principal principal, RedirectAttributes ra) {
+        boardService.startIssue(id, me(principal));
+        ra.addFlashAttribute("attendanceMessage", "처리를 시작했어요.");
+        return "redirect:/board/post/" + id;
+    }
+
+    @PostMapping("/post/{id}/issue/resolve")
+    public String resolveIssue(@PathVariable("id") Long id, @RequestParam(value = "resolution", required = false) String resolution,
+                               @RequestParam(value = "files", required = false) List<MultipartFile> files,
+                               Principal principal, RedirectAttributes ra) {
+        try {
+            boardService.resolveIssue(id, me(principal), resolution, files);
+            ra.addFlashAttribute("attendanceMessage", "해결을 등록했어요.");
+        } catch (com.mysite.sbb.common.exception.BusinessException | IllegalArgumentException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/board/post/" + id;
+    }
+
+    @PostMapping("/post/{id}/issue/reopen")
+    public String reopenIssue(@PathVariable("id") Long id, Principal principal, RedirectAttributes ra) {
+        boardService.reopenIssue(id, me(principal));
+        ra.addFlashAttribute("attendanceMessage", "해결을 취소했어요. 다시 처리 대기예요.");
         return "redirect:/board/post/" + id;
     }
 

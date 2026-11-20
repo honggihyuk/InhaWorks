@@ -1,5 +1,7 @@
 package com.mysite.sbb.attendance.service;
 
+import com.mysite.sbb.hr.constant.HistoryField;
+import com.mysite.sbb.hr.service.HrHistoryService;
 import com.mysite.sbb.attendance.constant.Tone;
 import com.mysite.sbb.attendance.constant.WorkPolicyType;
 import com.mysite.sbb.attendance.dto.PolicyTab;
@@ -43,6 +45,7 @@ public class WorkPolicyService {
     private final MemberRepository memberRepository;
     private final MemberService memberService;
     private final OrganizationService organizationService;
+    private final HrHistoryService historyService;
 
     // ---------- 조회 ----------
 
@@ -169,6 +172,7 @@ public class WorkPolicyService {
         for (Long id : new LinkedHashSet<>(memberIds)) {
             Member m = memberService.getMember(id);
             if (m.getWorkPolicy() == null || !m.getWorkPolicy().getId().equals(policyId)) {
+                historyService.record(m, HistoryField.WORK_POLICY, m.getWorkPolicy() == null ? null : m.getWorkPolicy().getName(), p.getName());
                 m.setWorkPolicy(p);
                 n++;
             }

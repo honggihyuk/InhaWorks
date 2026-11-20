@@ -62,6 +62,7 @@ flowchart LR
 | `report` | 보고서 양식(폼 빌더), 제출, 결재, 엑셀·zip |
 | `board` | 게시판, 글, 이슈 상태, 댓글 |
 | `attendance` | 출퇴근, 스케줄, 휴가, 근무 정책(근무제)·근무 유형 (`WorkPolicyService`) |
+| `hr` | 직원 허브, 인사 서류 종류·직원 서류(비공개 파일 + 열람 권한), 인사 변경 이력, 계약 만료·복직 알림 (`HrService`, `HrHistoryService`) |
 | `notification` | 앱 안 알림 |
 | `outbox` | Transactional Outbox (저장 · 릴레이 · 처리기) |
 | `batch` | 배치 실행 기록, 생성·마감·복구 배치 |
@@ -98,6 +99,10 @@ erDiagram
     MEMBER ||--o{ ATTENDANCE : "출퇴근(하루 1줄)"
     MEMBER ||--o{ WORK_SCHEDULE : "근무"
     WORK_POLICY ||--o{ MEMBER : "근무제 (직원마다 하나)"
+    MEMBER ||--o{ HR_DOCUMENT : "인사 서류 (종류마다 하나)"
+    HR_DOC_TYPE ||--o{ HR_DOCUMENT : "서류 종류 (필수 · 열람 권한)"
+    MEMBER ||--o{ MEMBER_HISTORY : "인사 변경 이력"
+    POST }o--o| WORKPLACE : "이슈 지점"
     WORK_POLICY ||--o{ SHIFT_TYPE : "근무 유형 (오픈·마감·휴무 …)"
     SHIFT_TYPE |o--o{ WORK_SCHEDULE : "근무 유형 (선택)"
     MEMBER ||--o{ LEAVE_REQUEST : "휴가"
@@ -138,6 +143,7 @@ erDiagram
 | `todo_assignment` | last_submit_token | 제출 더블클릭 |
 | `report` / `post` | submit_token | 보고서·글 중복 등록 |
 | `attendance` | (member, work_date) | 출근 두 번 |
+| `hr_document` | (member, type) | 같은 서류 두 장 (다시 올리면 교체) |
 | `outbox_event` | idempotency_key | 푸시 더블클릭 등 같은 요청으로 이벤트 두 번 |
 | `notification` | source_event_key | 같은 이벤트를 두 번 처리해도 알림은 한 번 |
 | `job_execution` | (job_name, job_key) | 같은 날짜 배치 기록 한 줄 |
@@ -406,3 +412,4 @@ public TodoAssignment review(...)   // 검수 / 결재 / 출퇴근 / 휴가 승�
 | 퇴사 처리 | 지우지 않고 비활성화 → 로그인 불가, 새 할 일 배정 제외 | `Member.active` |
 | 세부 권한 | 검수자·결재자 본인인지 서비스에서 확인 | `canReview`, `canDecide` |
 | 업로드 | 확장자 허용 목록, 파일 이름은 UUID, `/uploads/**` 도 로그인 필요 | `FileStore` |
+| 인사 서류 | 공개 폴더 밖(`app.private-dir`, 기본 `private-uploads/`)에 저장, `/hr/docs/{id}/file` 에서 열람 권한(관리자 / 본인 / 같은 팀 매니저 = 리더) 확인 후 `no-store` 로 내려줌. 거부는 로그로 남김. 교체·삭제한 파일은 커밋 뒤 지움, 롤백되면 새 파일을 지움(보상) | `HrService.canViewType`, `FileStore.storePrivate` |

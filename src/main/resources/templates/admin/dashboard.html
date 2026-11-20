@@ -96,6 +96,12 @@
                     <span class="body"><b th:text="|결재 대기 ${d.approvalWaiting()}건|">결재 대기 2건</b><small>결재함 열기</small></span>
                     <span class="chev">›</span>
                 </a>
+                <a class="attn" th:each="al : ${hrAlerts}" th:href="@{|/admin/members/${al.member().id}|}">
+                    <span class="ic" th:text="${al.label() == '계약 만료'} ? '계' : '복'">계</span>
+                    <span class="body"><b th:text="|${al.member().displayName} · ${al.label()} ${al.daysLeft() == 0 ? '오늘' : 'D-' + al.daysLeft()}|">이서연 · 계약 만료 D-12</b>
+                        <small th:text="|${#temporals.format(al.date(), 'yyyy.M.d (E)')} · 직원 정보 열기|">2026.12.1</small></span>
+                    <span class="chev">›</span>
+                </a>
                 <a class="attn" th:href="@{/admin/leave}">
                     <span class="ic">휴</span>
                     <span class="body"><b th:text="|휴가 신청 ${d.leavePending()}건|">휴가 신청 1건</b><small>승인 또는 반려</small></span>

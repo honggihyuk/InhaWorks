@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
+    // 이슈 게시판 : 통계·필터는 서비스에서 (게시판 하나의 글 수가 많지 않다)
+    java.util.List<Post> findByBoardIdOrderByIdDesc(Long boardId);
 
     // 고정 글 먼저, 그다음 최신순
     List<Post> findByBoardIdOrderByPinnedDescIdDesc(Long boardId);

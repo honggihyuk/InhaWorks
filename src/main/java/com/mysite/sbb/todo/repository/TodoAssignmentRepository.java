@@ -47,4 +47,11 @@ public interface TodoAssignmentRepository extends JpaRepository<TodoAssignment, 
 
     // 할 일 삭제 : 오늘부터 아직 제출하지 않은 배정은 함께 지운다
     List<TodoAssignment> findByTaskIdAndStatusAndWorkDateGreaterThanEqual(Long taskId, AssignmentStatus status, LocalDate from);
+
+    // 직원 허브 업무 탭 : 최근 배정
+    List<TodoAssignment> findTop20ByMemberIdOrderByWorkDateDescIdDesc(Long memberId);
+
+    long countByMemberIdAndWorkDateBetweenAndStatus(Long memberId, LocalDate from, LocalDate to, AssignmentStatus status);
+
+    long countByMemberIdAndWorkDateBetween(Long memberId, LocalDate from, LocalDate to);
 }

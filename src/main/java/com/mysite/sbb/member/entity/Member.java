@@ -1,6 +1,8 @@
 package com.mysite.sbb.member.entity;
 
 import com.mysite.sbb.attendance.entity.WorkPolicy;
+import com.mysite.sbb.hr.constant.EmploymentType;
+import java.time.LocalDate;
 
 import com.mysite.sbb.member.constant.MemberRole;
 import com.mysite.sbb.organization.entity.Team;
@@ -61,6 +63,25 @@ public class Member {
     private boolean active = true;          // 재직 중 (퇴사 처리하면 false → 로그인 불가, 할 일 배정 제외)
 
     private LocalDateTime created;          // 생성일
+
+    // ---------- 인사 정보 ----------
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private EmploymentType employmentType;  // 고용 형태 (정규직, 계약직 ...)
+
+    private LocalDate hireDate;             // 입사일
+
+    private LocalDate contractEndDate;      // 계약 만료일 (계약직·인턴)
+
+    private LocalDate returnDate;           // 복직 예정일 (휴직 중)
+
+    // 근속 : "2년 3개월" (입사일이 없으면 null)
+    public String getTenureText() {
+        if (hireDate == null || hireDate.isAfter(LocalDate.now())) return null;
+        java.time.Period p = java.time.Period.between(hireDate, LocalDate.now());
+        if (p.getYears() == 0 && p.getMonths() == 0) return p.getDays() + "일";
+        return (p.getYears() > 0 ? p.getYears() + "년 " : "") + p.getMonths() + "개월";
+    }
 
     // 화면 표시용 이름 : 이름이 없으면 아이디
     public String getDisplayName() {

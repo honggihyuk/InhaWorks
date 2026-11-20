@@ -1,5 +1,7 @@
 package com.mysite.sbb.board.entity;
 
+import com.mysite.sbb.board.constant.IssueCategory;
+import com.mysite.sbb.organization.entity.Workplace;
 import com.mysite.sbb.board.constant.IssueStatus;
 import com.mysite.sbb.common.entity.FileRef;
 import com.mysite.sbb.member.entity.Member;
@@ -10,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-// 게시글. 이슈&해결 게시판이면 issueStatus / resolution 을 쓴다
+// 게시글. 이슈&해결 게시판이면 issueStatus / 분류 / 지점 / 해결(내용·첨부·해결자·시각)을 쓴다
 @Entity
 @Table(indexes = @Index(name = "idx_post_board", columnList = "board_id, pinned"))
 @Getter
@@ -47,6 +49,21 @@ public class Post {
 
     private LocalDateTime resolvedAt;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Member resolvedBy;              // 해결한 사람
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private IssueCategory category;         // 이슈 분류 (재고, 시설 ...)
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Workplace workplace;            // 이슈가 생긴 지점 (매장)
+
+    @Builder.Default
+    @ElementCollection
+    @CollectionTable(name = "post_resolution_file", joinColumns = @JoinColumn(name = "post_id"))
+    private List<FileRef> resolutionFiles = new ArrayList<>();
+
     @Builder.Default
     @ElementCollection
     @CollectionTable(name = "post_file", joinColumns = @JoinColumn(name = "post_id"))
@@ -61,4 +78,19 @@ public class Post {
     private LocalDateTime created;
 
     private LocalDateTime updated;
+
+    // 경과 일수 : 해결 전에는 지금까지, 해결했으면 해결까지 (소수 한 자리)
+    public double getElapsedDays() {
+        if (created == null) return 0;
+        LocalDateTime end = resolvedAt != null && issueStatus == IssueStatus.RESOLVED ? resolvedAt : LocalDateTime.now();
+        return Math.round(java.time.Duration.between(created, end).toMinutes() / 144.0) / 10.0;
+    }
+
+    public String getElapsedText() {
+        double d = getElapsedDays();
+        boolean done = issueStatus == IssueStatus.RESOLVED;
+        if (d < 1) return done ? "당일 해결" : "오늘 등록";
+        String n = d == Math.floor(d) ? (long) d + "일" : d + "일";
+        return done ? n + " 만에 해결" : n + "째";
+    }
 }

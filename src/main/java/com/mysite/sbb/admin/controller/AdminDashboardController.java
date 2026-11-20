@@ -14,10 +14,12 @@ import java.time.LocalDate;
 public class AdminDashboardController {
 
     private final AdminDashboardService adminDashboardService;
+    private final com.mysite.sbb.hr.service.HrService hrService;
 
     @GetMapping({"/admin", "/admin/"})
     public String dashboard(Model model) {
         model.addAttribute("dash", adminDashboardService.build(LocalDate.now()));
+        model.addAttribute("hrAlerts", hrService.getAlerts());       // 계약 만료 · 복직 예정 (30일 안)
         return "admin/dashboard";
     }
 }

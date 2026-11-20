@@ -162,6 +162,24 @@
 - 필드 오류 `th:errors` 표시. 본인 수정 시 아이디 변경·ADMIN 해제 불가, active 강제 true.
 - 버튼 : 목록으로 `/admin`, 등록하기/저장하기. 성공 → `/admin` + flash adminMessage.
 
+- 이름(아바타+이름)은 **직원 허브** `/admin/members/{id}` 링크. 필수 서류를 안 낸 직원은 이름 옆 빨간 칩 "필수 서류 N" (→ 서류 탭).
+- 위 세그먼트 : 직원 · 팀·근무지 · **인사 서류**.
+- 직원 폼(A3/A4)에 인사 정보 : `employmentType`(정규직·계약직·파트타임·인턴), `hireDate`, `contractEndDate`, `returnDate`, `workPolicyId`. 바뀐 값은 변경 이력에 자동 기록.
+
+#### A2-1 직원 허브(인사 카드) `/admin/members/{id}?tab=`
+- 머리 : 아바타 · 이름 · 팀·근무지·직급 · 재직/퇴사 · 고용 형태 · 근무제 칩 · "필수 서류 N개 미제출"(빨강) · **정보 수정**.
+- 탭 `tab=info|attendance|work|docs|history` :
+  - 정보 : 인사 정보 카드(기본 정보 : 아이디·이메일·휴대폰·팀·근무지·직무/직급·권한 / 고용 : 고용 형태·입사일(근속)·계약 만료일·복직 예정일·근무제·등록일) + 서류 요약.
+  - 근태 `&month=yyyy-MM` : 출근율 도넛(=(출근+지각)/(출근+지각+결근)) + 출근·지각·휴가·결근 수 + 월 달력(출근 파랑 · 지각 노랑 · 휴가 초록 · 결근 연한 빨강 · 휴무 회색 · 예정 테두리). 근무일 = 스케줄(휴무 제외), 그 달 스케줄이 없으면 근무제의 근무 요일. 지각 = 스케줄(또는 근무제) 시작 시각 이후 출근.
+  - 업무 : 최근 30일 할 일 완료율 · 제출/통과 · 재작업, 최근 할 일 20건, 보고 및 결재 10건(→ `/report/{id}`).
+  - 서류 : 서류 종류마다 상태(✓ 첨부 완료 / ⚠ 필수 미제출 / 없음) · 열람 권한 칩 · 파일(→ `/hr/docs/{id}/file`) · 유효기간 · **제출/교체** `POST /admin/members/{id}/docs` (typeId, file, expiresAt) · **지우기** `POST /admin/members/{id}/docs/{docId}/delete` (확인).
+  - 이력 : 날짜 · 항목(팀·근무지·직급·권한·근무제·재직 상태·고용 형태·입사일·계약 만료일·복직 예정일·인사 서류) · 이전 · 변경 · 바꾼 사람.
+
+#### A2-2 인사 서류 설정 `/admin/hr/doc-types`
+- 표 : 서류 · 필수 · 열람 권한(본인·리더·관리자 / 본인·관리자 / 관리자만) · 직원 제출 여부 · 받은 수. ⋯ 메뉴 : 고치기(`#edit-{id}` 카드) · 사용 중지(확인)/다시 사용 `POST /admin/hr/doc-types/{id}/toggle`.
+- 추가 `POST /admin/hr/doc-types`, 고치기 `POST /admin/hr/doc-types/{id}` : name, description, scope, required, employeeUpload (‘관리자만’ 서류는 직원 제출 불가).
+- 처음 실행 기본 7종 : 근로계약서(필수, 관리자가 올림) · 통장 사본(필수) · 주민등록 등본(필수) · 개인정보 수집·이용 동의서(필수, 리더 열람) · 가족관계증명서 · 보건증(리더 열람) · 급여 정보(관리자만).
+
 #### A5 팀·근무지 `/admin/org`
 - 팀 추가 `POST /admin/org/team` : `name`(required ≤50), `description`(≤200). 중복 이름 오류.
 - 팀 목록 행 : 이름/설명 + **삭제** `POST /admin/org/team/{id}/delete` (`data-confirm` "이 팀을 지울까요?"; 소속 직원 있으면 오류).
@@ -298,18 +316,21 @@
 
 #### E13 글 목록 `/board/{id}`
 - 버튼 **글쓰기** `/board/{id}/write`.
-- 이슈 게시판만 : 통계 카드(해결률 %, OPEN/IN_PROGRESS/RESOLVED 건수 → `?status=`), 필터 칩 전체/상태별 `?status=OPEN|IN_PROGRESS|RESOLVED`.
+- 이슈 & 해결 게시판 : 지점 칩(전체 지점 + 근무지 `?place=`) → 통계 2장(**처리 대기 중** n건 · 미해결 기간 평균/최장 일, **해결 완료** n건 · 해결률 · 해결 소요 기간 평균/최장 일, 지점 필터 반영) → 상태 세그먼트(전체 / 처리 대기(처리 중 포함) / 해결 완료 `?status=`) + 분류 select(`?category=` 재고·시설·장비·고객·인력·시스템·안전·기타) → 카드 목록(상태 칩 · 경과일 "n일째"(3일 이상 빨강)/"n일 만에 해결" · 제목 · 분류 | 지점 · 작성자 · 시각 · 첨부 수 · 해결 한 줄).
 - 글 행 : 📌 공지 배지 · 제목 · 📎(첨부) · `작성자 · M.d HH:mm · 조회 N` · 이슈 상태 배지. 정렬 = 고정 먼저, 최신순.
 
 #### E14/E16 글쓰기·고치기 (`board/form`, `postId` null=쓰기)
-- 폼 `POST /board/{boardId}/write` 또는 `POST /board/post/{id}/edit`, multipart, `data-once` : hidden `submitToken`, `title`(≤150 필수), `content`(필수; 이슈판 placeholder 다름), `files`(multiple, 수정 시 추가만), `pinned`(체크 — ADMIN 만 표시 "공지로 맨 위에 고정 (전 직원에게 알림)").
+- 폼 `POST /board/{boardId}/write` 또는 `POST /board/post/{id}/edit`, multipart, `data-once` : hidden `submitToken`, `title`(≤150 필수), (이슈판) `category`·`workplaceId`(기본 = 내 근무지), `content`(필수; 이슈판 placeholder 다름), `files`(multiple, 수정 시 추가만), `pinned`(체크 — ADMIN 만 표시 "공지로 맨 위에 고정 (전 직원에게 알림)").
 - 취소 링크 : 목록 또는 글.
 
 #### E15 글 보기 `/board/post/{id}`
 - 게시판 링크, 📌 배지, 제목, 작성자·일시·조회수, 이슈 배지.
 - **고정/고정 풀기** `POST /board/post/{id}/pin` (ADMIN 만, `sec:authorize`). **수정** `/board/post/{id}/edit`, **삭제** `POST /board/post/{id}/delete` (`data-confirm`) — `canEdit` (작성자 또는 ADMIN).
 - 본문, 첨부 다운로드 목록.
-- 이슈 게시판 : "해결 방법" 박스(내용, 해결 시각) + 폼 `POST /board/post/{id}/issue` `resolution`(textarea, RESOLVED 시 필수) + `status` select + **상태 저장**. (모든 접근 가능 직원이 변경 가능)
+- 이슈 게시판 : 상태 배너(처리 대기 연한 빨강 / 해결 완료 연한 파랑 + 경과일) → 제목 · 분류 | 지점 · 작성자 · 시각 → **타임라인** : 빨간 ! "이슈"(본문 + 첨부 썸네일/파일 카드) → 파란 ✓ "해결"(해결자 · 시각 · 해결 내용 · 해결 첨부).
+  - 해결 전 : **처리 시작** `POST /board/post/{id}/issue/start` (OPEN → IN_PROGRESS), **해결 등록** `POST /board/post/{id}/issue/resolve` multipart `resolution`(필수) + `files` → 해결자·시각 기록, 글쓴이 알림. 볼 수 있는 직원 누구나.
+  - 해결 후 : **해결 취소…** `POST /board/post/{id}/issue/reopen` (확인 모달; 해결한 사람·글쓴이·매니저·관리자) → 해결 내용·첨부 비우고 처리 대기, 글쓴이 알림.
+  - 예전 상태 폼 `POST /board/post/{id}/issue` 도 남아 있다 (해결자 기록).
 - 댓글 `POST /board/post/{id}/comment`.
 
 #### E17 출퇴근 `/attendance`

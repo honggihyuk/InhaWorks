@@ -18,6 +18,7 @@
     <nav class="segmented" aria-label="직원·조직">
         <a th:href="@{/admin/members}" class="active" aria-current="page">직원</a>
         <a th:href="@{/admin/org}">팀 · 근무지</a>
+        <a th:href="@{/admin/hr/doc-types}">인사 서류</a>
     </nav>
 
     <section class="card flush">
@@ -26,7 +27,9 @@
                 <thead><tr><th>이름</th><th>사용자ID</th><th>팀 · 근무지 · 직급</th><th>근무제</th><th>등록일</th><th style="min-width:220px">권한</th><th class="right"></th></tr></thead>
                 <tbody>
                 <tr th:each="m : ${memberList}" th:classappend="${m.active} ? '' : 'dim'">
-                    <td><span class="person"><span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span><span th:text="${m.displayName}">홍기혁</span></span>
+                    <td><a class="person" th:href="@{|/admin/members/${m.id}|}" title="직원 정보 · 근태 · 업무 · 서류"><span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span><span th:text="${m.displayName}">홍기혁</span></a>
+                        <a th:if="${missingDocs != null and missingDocs[m.id] != null and missingDocs[m.id] > 0}" class="chip red" style="margin-left:4px"
+                           th:href="@{|/admin/members/${m.id}|(tab='docs')}" th:text="|필수 서류 ${missingDocs[m.id]}|" title="미제출 필수 서류">필수 서류 1</a>
                         <span class="chip grey" th:unless="${m.active}">퇴사</span></td>
                     <td class="mono" th:text="${m.username}">emp1</td>
                     <td class="muted" th:text="${m.subtitle}">영업팀 · 인하점 · 사원</td>

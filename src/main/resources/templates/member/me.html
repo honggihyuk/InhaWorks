@@ -27,10 +27,20 @@
                 <button type="submit" class="btn" data-confirm="프로필 사진을 지울까요?" data-confirm-ok="지우기" data-danger>사진 지우기</button>
             </form>
         </div>
+        <dl class="kv" style="margin:0">
+            <dt>입사일</dt><dd class="tnum"><th:block th:text="${m.hireDate != null ? #temporals.format(m.hireDate, 'yyyy.M.d') : '-'}">2024.3.2</th:block>
+                <span class="faint" th:if="${m.tenureText != null}" th:text="| · ${m.tenureText}|"></span></dd>
+            <dt>고용 형태</dt><dd th:text="${m.employmentType != null ? m.employmentType.label : '-'}">정규직</dd>
+            <dt>근무제</dt><dd th:text="${m.workPolicy != null ? m.workPolicy.name : '-'}">매장 스케줄 근무</dd>
+        </dl>
         <hr style="border:0;border-top:1px solid #EDF0F4;margin:0">
         <form sec:authorize="hasRole('ADMIN')" th:action="@{/admin/logout}" method="post"><button type="submit" class="btn block">로그아웃</button></form>
         <form sec:authorize="!hasRole('ADMIN')" th:action="@{/member/logout}" method="post"><button type="submit" class="btn block">로그아웃</button></form>
     </section>
+
+    <!-- 내 인사 서류 : 내가 볼 수 있는 종류만, 직원 제출 가능한 서류는 여기서 내거나 바꾼다 -->
+    <section th:replace="~{hr/docs :: list(${myDocs}, @{/me/docs}, @{/me/docs})}"></section>
+    <p class="faint small">서류는 비공개로 보관되고, 본인과 권한이 있는 사람(리더·관리자)만 열 수 있어요.</p>
 </main>
 </body>
 </html>

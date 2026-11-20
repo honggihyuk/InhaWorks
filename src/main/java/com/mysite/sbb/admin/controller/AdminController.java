@@ -28,6 +28,7 @@ public class AdminController {
     private final AdminMemberService adminMemberService;
     private final OrganizationService organizationService;
     private final com.mysite.sbb.attendance.service.WorkPolicyService workPolicyService;
+    private final com.mysite.sbb.hr.service.HrService hrService;
 
     // 관리자 로그인 화면 (POST /admin/login 은 Spring Security 가 처리)
     @GetMapping("/login")
@@ -40,6 +41,7 @@ public class AdminController {
     public String index(Model model) {
         model.addAttribute("memberList", memberService.getMemberList());
         model.addAttribute("roles", MemberRole.values());
+        model.addAttribute("missingDocs", hrService.getMissingRequiredCounts(memberService.getMemberList()));
         return "admin/index";
     }
 

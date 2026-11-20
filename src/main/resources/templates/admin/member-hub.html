@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${m.displayName}">직원</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/members}">직원·조직</a><span class="sep">›</span><b th:text="${m.displayName}">최유리</b></nav>
+
+<main layout:fragment="content" class="content">
+    <!-- 프로필 머리 -->
+    <section class="hub-head">
+        <span th:replace="~{fragments/ui :: avatar(${m}, 'lg')}"></span>
+        <div class="hub-who">
+            <h1 class="page-title" th:text="${m.displayName}">최유리</h1>
+            <p class="page-sub" th:text="${m.subtitle != null and !#strings.isEmpty(m.subtitle)} ? ${m.subtitle} : '소속 없음'">영업팀 · 인하점 · 사원</p>
+            <div class="chips" style="margin-top:8px">
+                <span class="chip" th:classappend="${m.active} ? 'blue' : 'grey'" th:text="${m.active} ? '재직' : '퇴사'">재직</span>
+                <span class="chip outline" th:if="${m.employmentType != null}" th:text="${m.employmentType.label}">정규직</span>
+                <a class="chip" th:if="${m.workPolicy != null}" th:classappend="${m.workPolicy.toneOrDefault.css}"
+                   th:href="@{|/admin/schedule/policies/${m.workPolicy.id}|}" th:text="${m.workPolicy.type.shortLabel}">스케줄 근무</a>
+                <a class="chip red" th:if="${missingRequired > 0}" th:href="@{|/admin/members/${m.id}|(tab='docs')}"
+                   th:text="|필수 서류 ${missingRequired}개 미제출|">필수 서류 1개 미제출</a>
+            </div>
+        </div>
+        <div class="actions"><a th:href="@{|/admin/member/${m.id}/edit|}" class="btn">정보 수정</a></div>
+    </section>
+
+    <nav class="tabs-line hub-tabs" aria-label="직원 정보">
+        <a th:each="t : ${ {'info','attendance','work','docs','history'} }"
+           th:href="@{|/admin/members/${m.id}|(tab=${t})}" th:classappend="${tab == t} ? 'active'" th:attr="aria-current=${tab == t} ? 'page'"
+           th:text="${t == 'info'} ? '정보' : (${t == 'attendance'} ? '근태' : (${t == 'work'} ? '업무' : (${t == 'docs'} ? '서류' : '이력')))">정보</a>
+    </nav>
+
+    <!-- ===== 정보 ===== -->
+    <div th:if="${tab == 'info'}" class="grid grid-2 hub-grid">
+        <section class="card">
+            <div class="card-head"><h2>인사 정보</h2></div>
+            <div class="kv-group">기본 정보</div>
+            <dl class="kv">
+                <dt>사용자ID</dt><dd class="mono" th:text="${m.username}">emp1</dd>
+                <dt>이메일</dt><dd th:text="${m.email != null ? m.email : '-'}">-</dd>
+                <dt>휴대폰 번호</dt><dd class="tnum" th:text="${m.phone != null ? m.phone : '-'}">010</dd>
+                <dt>팀</dt><dd th:text="${m.team != null ? m.team.name : '-'}">영업팀</dd>
+                <dt>근무지</dt><dd th:text="${m.workplace != null ? m.workplace.name : '-'}">인하점</dd>
+                <dt>직무 / 직급</dt><dd th:text="${m.position != null ? m.position : '-'}">사원</dd>
+                <dt>권한</dt><dd th:text="${m.role != null ? m.role.label : '-'}">직원</dd>
+            </dl>
+            <div class="kv-group">고용</div>
+            <dl class="kv">
+                <dt>고용 형태</dt><dd th:text="${m.employmentType != null ? m.employmentType.label : '-'}">정규직</dd>
+                <dt>입사일</dt><dd class="tnum"><th:block th:text="${m.hireDate != null ? #temporals.format(m.hireDate, 'yyyy.M.d') : '-'}">2024.3.2</th:block>
+                    <span class="faint" th:if="${m.tenureText != null}" th:text="| · ${m.tenureText}|"> · 2년</span></dd>
+                <dt>계약 만료일</dt><dd class="tnum" th:text="${m.contractEndDate != null ? #temporals.format(m.contractEndDate, 'yyyy.M.d') : '-'}">-</dd>
+                <dt>복직 예정일</dt><dd class="tnum" th:text="${m.returnDate != null ? #temporals.format(m.returnDate, 'yyyy.M.d') : '-'}">-</dd>
+                <dt>근무제</dt><dd th:text="${m.workPolicy != null ? m.workPolicy.name : '-'}">매장 스케줄 근무</dd>
+                <dt>등록일</dt><dd class="tnum" th:text="${m.created != null ? #temporals.format(m.created, 'yyyy.M.d') : '-'}">2026.11.19</dd>
+            </dl>
+        </section>
+        <section class="card">
+            <div class="card-head"><h2>서류 요약</h2><a class="link-muted" th:href="@{|/admin/members/${m.id}|(tab='docs')}">서류 ›</a></div>
+            <ul class="mini-docs">
+                <li th:each="r : ${docs}">
+                    <span th:text="${r.type().name}">통장 사본</span>
+                    <span th:if="${r.doc() != null}" class="chip ok">✓ 첨부 완료</span>
+                    <span th:if="${r.missingRequired()}" class="chip red">필수 · 미제출</span>
+                    <span th:if="${r.doc() == null and !r.missingRequired()}" class="faint small">없음</span>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+    <!-- ===== 근태 ===== -->
+    <th:block th:if="${tab == 'attendance'}">
+        <div class="row" style="justify-content:space-between">
+            <h2 class="sec-h" th:text="${#temporals.format(am.month().atDay(1), 'yyyy년 M월')}">2026년 11월</h2>
+            <div class="actions">
+                <a class="btn sm" th:href="@{|/admin/members/${m.id}|(tab='attendance', month=${am.month().minusMonths(1)})}">‹ 지난달</a>
+                <a class="btn sm" th:href="@{|/admin/members/${m.id}|(tab='attendance')}">이번 달</a>
+                <a class="btn sm" th:href="@{|/admin/members/${m.id}|(tab='attendance', month=${am.month().plusMonths(1)})}">다음 달 ›</a>
+            </div>
+        </div>
+        <div class="grid hub-att">
+            <section class="card att-rate">
+                <div class="donut" th:style="|--p:${am.rate()}|" role="img" th:aria-label="|출근율 ${am.rate()}퍼센트|"><span class="tnum" th:text="${am.rate()}">82</span><small>%</small></div>
+                <div>
+                    <div class="label">출근율</div>
+                    <dl class="att-legend">
+                        <div><dt><i class="sw st-present"></i>출근</dt><dd class="tnum" th:text="${am.present()}">12</dd></div>
+                        <div><dt><i class="sw st-late"></i>지각</dt><dd class="tnum" th:text="${am.late()}">1</dd></div>
+                        <div><dt><i class="sw st-leave"></i>휴가</dt><dd class="tnum" th:text="${am.leave()}">1</dd></div>
+                        <div><dt><i class="sw st-absent"></i>결근</dt><dd class="tnum" th:text="${am.absent()}">2</dd></div>
+                    </dl>
+                    <p class="faint small">출근율 = (출근 + 지각) ÷ (출근 + 지각 + 결근). 근무일은 스케줄, 없으면 근무제의 근무 요일로 봐요.</p>
+                </div>
+            </section>
+            <section class="card">
+                <table class="att-cal">
+                    <thead><tr><th>월</th><th>화</th><th>수</th><th>목</th><th>금</th><th>토</th><th class="sun">일</th></tr></thead>
+                    <tbody>
+                    <tr th:each="w : ${am.weeks()}">
+                        <td th:each="d : ${w}">
+                            <span th:if="${d.status() != 'OUT'}" class="att-day" th:classappend="|st-${#strings.toLowerCase(d.status())}|"
+                                  th:title="|${#temporals.format(d.date(), 'M.d (E)')} ${d.label()}${d.detail() != null ? ' · ' + d.detail() : ''}|"
+                                  th:text="${d.date().dayOfMonth}">1</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </th:block>
+
+    <!-- ===== 업무 ===== -->
+    <th:block th:if="${tab == 'work'}">
+        <section class="grid grid-3" aria-label="최근 30일 할 일">
+            <div class="card kpi"><span class="label">할 일 완료율 (30일)</span><span class="value blue"><th:block th:text="${todoRate}">80</th:block><small>%</small></span></div>
+            <div class="card kpi"><span class="label">제출 · 통과</span><span class="value"><th:block th:text="${todoDone}">8</th:block><small th:text="| / ${todoTotal}건|">/ 10건</small></span></div>
+            <div class="card kpi"><span class="label">재작업</span><span class="value" th:classappend="${todoRework > 0} ? 'red'"><th:block th:text="${todoRework}">0</th:block><small>건</small></span></div>
+        </section>
+        <div class="grid grid-2 hub-grid">
+            <section class="card flush">
+                <div class="card-head"><h2>최근 할 일</h2></div>
+                <div class="list" style="padding:4px 22px 12px">
+                    <div th:if="${#lists.isEmpty(assignments)}" class="empty-sm">배정된 할 일이 없어요.</div>
+                    <div class="list-item" th:each="a : ${assignments}">
+                        <div class="body"><b th:text="${a.task.title}">매장 오픈</b><small th:text="${#temporals.format(a.workDate, 'M.d (E)')}">11.20</small></div>
+                        <span th:replace="~{fragments/ui :: chip(${a.status.name()}, ${a.status.label})}"></span>
+                    </div>
+                </div>
+            </section>
+            <section class="card flush">
+                <div class="card-head"><h2>보고 및 결재</h2></div>
+                <div class="list" style="padding:4px 22px 12px">
+                    <div th:if="${#lists.isEmpty(reports)}" class="empty-sm">제출한 보고서가 없어요.</div>
+                    <a class="list-item" th:each="r : ${reports}" th:href="@{|/report/${r.id}|}">
+                        <div class="body"><b th:text="${r.form.title}">주간 보고</b><small th:text="${r.submittedAt != null ? #temporals.format(r.submittedAt, 'M.d HH:mm') : '-'}">11.20</small></div>
+                        <span th:replace="~{fragments/ui :: chip(${r.status.name()}, ${r.status.label})}"></span>
+                    </a>
+                </div>
+            </section>
+        </div>
+    </th:block>
+
+    <!-- ===== 서류 ===== -->
+    <th:block th:if="${tab == 'docs'}">
+        <section th:replace="~{hr/docs :: list(${docs}, @{|/admin/members/${m.id}/docs|}, @{|/admin/members/${m.id}/docs|})}"></section>
+        <p class="faint small">서류 파일은 공개 주소가 아닌 비공개 폴더에 저장되고, 열람 권한(본인 · 리더 · 관리자)을 확인한 뒤에만 열려요. 서류 종류와 열람 권한은 <a class="link" th:href="@{/admin/hr/doc-types}">인사 서류 설정</a>에서 바꿔요.</p>
+    </th:block>
+
+    <!-- ===== 이력 ===== -->
+    <section th:if="${tab == 'history'}" class="card flush">
+        <div class="card-head"><h2>변경 이력</h2><span class="meta">조직 · 직책 · 근무제 · 재직 상태 · 서류</span></div>
+        <div th:if="${#lists.isEmpty(history)}" class="empty"><b>아직 바뀐 내용이 없어요</b><span>정보를 고치면 여기에 남아요</span></div>
+        <div class="table-box" th:unless="${#lists.isEmpty(history)}">
+            <table class="t">
+                <thead><tr><th>날짜</th><th>항목</th><th>이전</th><th>변경</th><th>바꾼 사람</th></tr></thead>
+                <tbody>
+                <tr th:each="h : ${history}">
+                    <td class="tnum nowrap cell-title" th:text="${#temporals.format(h.changedAt, 'yyyy.M.d HH:mm')}">2026.11.20</td>
+                    <td><span class="chip grey" th:text="${h.field.label}">팀</span></td>
+                    <td class="muted" th:text="${h.beforeValue != null ? h.beforeValue : '-'}">영업팀</td>
+                    <td><b th:text="${h.afterValue != null ? h.afterValue : '-'}">운영팀</b></td>
+                    <td class="muted" th:text="${h.changedBy != null ? h.changedBy.displayName : '시스템'}">관리자</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

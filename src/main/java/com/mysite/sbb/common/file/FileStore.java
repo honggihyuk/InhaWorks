@@ -35,9 +35,70 @@ public class FileStore {
     private static final String PNG_PREFIX = "data:image/png;base64,";
 
     private final Path uploadDir;
+    private final Path privateDir;          // 인사 서류처럼 공개 주소(/uploads/**)로 열면 안 되는 파일 : 권한 검사 후 컨트롤러가 내려준다
 
-    public FileStore(@Value("${app.upload-dir:uploads}") String uploadDir) {
+    public FileStore(@Value("${app.upload-dir:uploads}") String uploadDir,
+                     @Value("${app.private-dir:private-uploads}") String privateDir) {
         this.uploadDir = Paths.get(uploadDir).toAbsolutePath().normalize();
+        this.privateDir = Paths.get(privateDir).toAbsolutePath().normalize();
+        if (this.privateDir.startsWith(this.uploadDir)) {
+            throw new IllegalStateException("app.private-dir 는 app.upload-dir 밖이어야 해요 (공개 주소로 열리지 않게).");
+        }
+    }
+
+    // ---------- 비공개 파일 (인사 서류) ----------
+
+    // 이미지·문서를 비공개 폴더에 저장. path 는 "hr/uuid.pdf" 처럼 비공개 폴더 기준 상대 경로 (웹 주소 아님)
+    public FileRef storePrivate(MultipartFile file, String folder) {
+        if (file == null || file.isEmpty()) return null;
+        String original = cleanName(file.getOriginalFilename());
+        String ext = original.contains(".") ? original.substring(original.lastIndexOf('.') + 1).toLowerCase() : "";
+        if (!DOCUMENTS.contains(ext)) throw new IllegalArgumentException("올릴 수 없는 파일 형식이에요. (이미지, pdf, 오피스, hwp, txt, zip)");
+        String rel = folder + "/" + UUID.randomUUID() + "." + ext;
+        Path target = privateDir.resolve(rel).normalize();
+        try (InputStream in = file.getInputStream()) {
+            Files.createDirectories(target.getParent());
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new IllegalStateException("파일 저장에 실패했습니다.", e);
+        }
+        deleteOnRollback(target);
+        return new FileRef(original, rel, file.getSize());
+    }
+
+    // 비공개 상대 경로 → 실제 위치 (폴더 밖은 null)
+    public Path resolvePrivate(String rel) {
+        if (rel == null || rel.isBlank()) return null;
+        Path p = privateDir.resolve(rel).normalize();
+        return p.startsWith(privateDir) ? p : null;
+    }
+
+    // 커밋된 뒤에 지운다 (지우기·교체가 롤백되면 파일은 남아 있어야 하므로)
+    public void deletePrivateAfterCommit(String rel) {
+        Path p = resolvePrivate(rel);
+        if (p == null) return;
+        Runnable del = () -> {
+            try {
+                Files.deleteIfExists(p);
+            } catch (IOException e) {
+                log.warn("=======> 비공개 파일 삭제 실패 : {}", p, e);
+            }
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            del.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                del.run();
+            }
+        });
+    }
+
+    private static String cleanName(String name) {
+        String original = name == null ? "" : name;
+        return original.substring(Math.max(original.lastIndexOf('/'), original.lastIndexOf('\\')) + 1);
     }
 
     public Path getUploadDir() {

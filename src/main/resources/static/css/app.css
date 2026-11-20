@@ -727,3 +727,151 @@ table.month-cal .shift-pill { display: flex; flex-wrap: wrap; margin: 0 0 4px; f
     .shift-row > .btn { justify-self: start; }
     .policy-week { align-items: flex-start; }
 }
+
+/* ==========================================================================
+   직원 허브(인사 카드) · 인사 서류 — docs/design.md 4.12
+   ========================================================================== */
+.hub-head { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.hub-head .hub-who { flex: 1; min-width: 200px; }
+.hub-head .page-title { font-size: 28px; }
+.hub-tabs { margin-top: -6px; }
+.hub-tabs a.active { color: var(--text); border-bottom-color: var(--text); font-weight: 600; }
+.hub-grid { align-items: start; }
+.sec-h { font-size: 17px; font-weight: 700; }
+.blue-num { color: var(--blue); margin-left: 4px; }
+.kv-group { margin: 6px 0 4px; padding: 8px 12px; border-radius: 10px; background: var(--bg-soft); color: var(--muted); font-size: 12px; font-weight: 600; }
+.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 10px 14px; margin: 10px 4px 16px; font-size: 14px; }
+.kv dt { color: var(--muted); font-size: 13px; }
+.kv dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.mini-docs { list-style: none; margin: 0; padding: 0; }
+.mini-docs li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.mini-docs li:last-child { border-bottom: 0; }
+.chip.ok { background: #ECF8EF; color: #15803D; border-color: #CBEBD3; }
+
+/* 근태 탭 : 출근율 도넛 + 날짜 색 달력 */
+.hub-att { grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); align-items: start; }
+.att-rate { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.donut { --p: 0; width: 120px; height: 120px; border-radius: 50%; flex: none; display: grid; place-items: center; position: relative;
+    background: conic-gradient(var(--blue) calc(var(--p) * 1%), var(--lb2) 0); }
+.donut::before { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: #fff; }
+.donut span, .donut small { position: relative; }
+.donut span { font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+.donut small { position: absolute; bottom: 34px; right: 26px; color: var(--muted); font-size: 12px; }
+.att-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; margin: 8px 0 10px; }
+.att-legend > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.att-legend dt { color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.att-legend dd { margin: 0; font-weight: 600; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+table.att-cal { width: 100%; border-collapse: separate; border-spacing: 6px; table-layout: fixed; }
+table.att-cal th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: center; }
+table.att-cal th.sun { color: var(--danger); }
+table.att-cal td { text-align: center; padding: 0; }
+.att-day { display: inline-grid; place-items: center; width: 100%; max-width: 44px; aspect-ratio: 1; border-radius: 10px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; background: #F2F4F7; color: var(--faint); }
+.st-present { background: #DCE8FE; color: #1D4ED8; }
+.att-day.st-present { background: var(--blue); color: #fff; }
+.st-late { background: #F6E3A6; }
+.att-day.st-late { background: #FFF1C2; color: #A16207; box-shadow: inset 0 0 0 1px #F6E3A6; }
+.st-leave { background: #CBEBD3; }
+.att-day.st-leave { background: #DDF3E3; color: #15803D; }
+.st-absent { background: #F3C9C4; }
+.att-day.st-absent { background: var(--danger-bg); color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger-border); }
+.att-day.st-off, .att-day.st-none { background: #F7F8FA; color: var(--faint); }
+.att-day.st-planned { background: #fff; color: var(--muted); box-shadow: inset 0 0 0 1px var(--lb-border); }
+
+/* 서류 목록 */
+.doc-card .card-head { padding: 18px 22px 6px; }
+.doc-list { list-style: none; margin: 0; padding: 4px 22px 14px; }
+.doc-row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.doc-row:last-child { border-bottom: 0; }
+.doc-ic { width: 26px; height: 32px; flex: none; border-radius: 5px; background: #E4E7EC; position: relative; }
+.doc-ic::after { content: ""; position: absolute; top: 0; right: 0; border-width: 0 8px 8px 0; border-style: solid; border-color: #fff #fff #C9CED6 #C9CED6; }
+.doc-row.warn .doc-ic { background: var(--danger-border); }
+.doc-body { flex: 1; min-width: 0; }
+.doc-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.doc-name b { font-weight: 600; }
+.doc-sub { margin-top: 4px; font-size: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); }
+.doc-file { color: var(--text) !important; font-weight: 500; text-decoration: underline; text-decoration-color: var(--lb-border); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.doc-warn { color: var(--danger); font-weight: 600; }
+.doc-warn::before { content: "⚠ "; }
+.doc-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.doc-actions .btn.sm { cursor: pointer; }
+.doc-upload { margin: 0; }
+[data-target-show] { display: none; }
+[data-target-show]:target { display: flex; }
+
+/* ==========================================================================
+   이슈 & 해결 — docs/design.md 4.13
+   경고는 연한 빨강을 절제해서 (처리 대기 카드 머리, 오래된 이슈 경과일), 해결은 연한 파랑
+   ========================================================================== */
+.place-chips { gap: 8px; }
+.issue-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.istat { display: grid; grid-template-columns: minmax(130px, 38%) minmax(0, 1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #fff; color: inherit; box-shadow: var(--shadow); }
+.istat:hover { border-color: var(--lb-border); color: inherit !important; }
+.istat-main { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; }
+.istat.pending .istat-main { background: var(--danger-bg); }
+.istat.done .istat-main { background: var(--lb2); }
+.istat-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.istat-label i { font-style: normal; width: 18px; height: 18px; border-radius: 5px; display: inline-grid; place-items: center; font-size: 11px; color: #fff; }
+.istat.pending .istat-label i { background: #E5675B; }
+.istat.done .istat-label i { background: var(--blue); }
+.istat-main b { font-size: 28px; font-weight: 700; letter-spacing: -.02em; margin-top: auto; text-align: right; }
+.istat-main b small, .istat-pair b small { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 2px; }
+.istat-sub { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.istat-cap { font-size: 13px; font-weight: 600; }
+.istat-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.istat-pair > div { display: flex; flex-direction: column; gap: 8px; }
+.istat-pair > div + div { border-left: 1px solid var(--border); padding-left: 12px; }
+.istat-pair .chip { align-self: flex-start; height: 18px; font-size: 11px; padding: 0 6px; }
+.istat-pair b { font-size: 22px; font-weight: 700; text-align: right; }
+.issue-list { display: flex; flex-direction: column; gap: 10px; }
+.issue-card { display: flex; flex-direction: column; gap: 6px; color: inherit; padding: 18px 22px; transition: border-color .15s var(--ease); }
+.issue-card:hover { border-color: var(--lb-border); color: inherit !important; }
+.issue-card .ic-top { display: flex; align-items: center; gap: 6px; }
+.issue-card .ic-age { margin-left: auto; font-size: 12px; color: var(--muted); }
+.issue-card .ic-age.late { color: var(--danger); font-weight: 600; }
+.issue-card .ic-title { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.issue-card .ic-meta { font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ic-meta .sep, .id-meta .sep { color: var(--border); }
+.issue-detail { overflow: hidden; }
+.id-banner { display: flex; align-items: center; justify-content: space-between; padding: 14px 22px; }
+.issue-detail.is-open .id-banner { background: var(--danger-bg); }
+.issue-detail.is-done .id-banner { background: var(--lb2); }
+.id-status { display: inline-flex; height: 30px; align-items: center; padding: 0 12px; border-radius: 9px; font-size: 13px; font-weight: 600; color: #fff; }
+.issue-detail.is-open .id-status { background: #E5675B; }
+.issue-detail.is-done .id-status { background: var(--blue); }
+.id-age { font-size: 13px; color: var(--muted); }
+.id-head { padding: 22px 22px 18px; border-bottom: 1px solid var(--border); }
+.id-title { font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1.3; }
+.id-meta { margin-top: 8px; font-size: 13px; color: var(--muted); display: flex; gap: 8px; }
+.timeline { list-style: none; margin: 0; padding: 22px; }
+.tl-item { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 14px; padding-bottom: 26px; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-item::before { content: ""; position: absolute; left: 14px; top: 32px; bottom: 2px; width: 2px; border-radius: 2px; }
+.tl-item:last-child::before { display: none; }
+.tl-issue::before { background: #F3C9C4; }
+.tl-resolve::before, .tl-pending::before { background: var(--lb-border); }
+.tl-dot { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px; }
+.tl-issue .tl-dot { background: #E5675B; }
+.tl-resolve .tl-dot { background: var(--blue); }
+.tl-pending .tl-dot { background: #fff; border: 2px dashed var(--lb-border); }
+.tl-title { font-size: 17px; font-weight: 700; margin: 3px 0 10px; }
+.tl-issue .tl-title { color: #D2483B; }
+.tl-resolve .tl-title { color: var(--blue); }
+.tl-pending .tl-title { color: var(--muted); }
+.att-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.att-thumb { width: 84px; height: 84px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); flex: none; }
+.att-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.att-file { display: inline-flex; align-items: center; gap: 10px; min-height: 64px; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-soft); color: inherit; max-width: 260px; }
+.att-file b { display: block; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-file small { color: var(--faint); font-size: 11px; }
+.att-file:hover { border-color: var(--lb-border); color: inherit !important; }
+
+@media (max-width: 900px) {
+    .hub-att { grid-template-columns: minmax(0, 1fr); }
+    .issue-stats { grid-template-columns: minmax(0, 1fr); }
+    .kv { grid-template-columns: 96px minmax(0, 1fr); }
+    .doc-row { flex-wrap: wrap; }
+    .doc-actions { width: 100%; justify-content: flex-start; padding-left: 38px; }
+    .id-title { font-size: 21px; }
+    .timeline { padding: 18px 16px; }
+}

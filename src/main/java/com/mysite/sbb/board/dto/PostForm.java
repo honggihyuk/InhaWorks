@@ -24,6 +24,10 @@ public class PostForm {
 
     private boolean pinned;                 // 관리자만
 
+    // 이슈 & 해결 게시판
+    private com.mysite.sbb.board.constant.IssueCategory category;
+    private Long workplaceId;
+
     private String submitToken = UUID.randomUUID().toString();
 
     public static PostForm of(Post p) {
@@ -31,6 +35,8 @@ public class PostForm {
         f.setTitle(p.getTitle());
         f.setContent(p.getContent());
         f.setPinned(p.isPinned());
+        f.setCategory(p.getCategory());
+        f.setWorkplaceId(p.getWorkplace() == null ? null : p.getWorkplace().getId());
         return f;
     }
 }

@@ -57,6 +57,17 @@
             <div class="field"><label for="phone">연락처 (선택)</label>
                 <input type="text" th:field="*{phone}" class="input" placeholder="010-0000-0000"></div>
         </div>
+        <div class="kv-group" style="margin:0">인사 정보 <span class="faint" style="font-weight:400">— 계약 만료일·복직 예정일이 30일 안이면 대시보드에 알려 드려요</span></div>
+        <div class="form-grid">
+            <div class="field"><label for="employmentType">고용 형태</label>
+                <select th:field="*{employmentType}" class="select">
+                    <option value="">정하지 않음</option>
+                    <option th:each="e : ${T(com.mysite.sbb.hr.constant.EmploymentType).values()}" th:value="${e}" th:text="${e.label}">정규직</option>
+                </select></div>
+            <div class="field"><label for="hireDate">입사일</label><input type="date" th:field="*{hireDate}" class="input"></div>
+            <div class="field"><label for="contractEndDate">계약 만료일</label><input type="date" th:field="*{contractEndDate}" class="input"></div>
+            <div class="field"><label for="returnDate">복직 예정일</label><input type="date" th:field="*{returnDate}" class="input"></div>
+        </div>
         <label class="round-check"><input type="checkbox" th:field="*{active}">재직 중 (끄면 로그인할 수 없어요)</label>
         <div class="row" style="justify-content:space-between">
             <a th:href="@{/admin/members}" class="btn">목록으로</a>

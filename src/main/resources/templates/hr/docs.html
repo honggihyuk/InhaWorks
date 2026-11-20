@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 인사 서류 목록 (관리자 직원 허브 · 직원 내 정보 공통)
+     rows : List<HrViews.DocRow> (보는 사람이 볼 수 있는 종류만)
+     uploadUrl : 올리기 POST 주소 (typeId, file, expiresAt) / deleteBase : 지우기 주소 앞부분 (+ /{docId}/delete)
+     파일은 /hr/docs/{id}/file 에서 권한 확인 후 내려받는다 (공개 주소 아님) -->
+<section th:fragment="list(rows, uploadUrl, deleteBase)" class="card flush doc-card" id="docs">
+    <div class="card-head">
+        <h2>제출 서류 <span class="tnum blue-num" th:text="${#lists.size(rows.?[!missing()])}">3</span><span class="faint tnum" th:text="| / ${#lists.size(rows)}|"> / 5</span></h2>
+        <span class="meta">PDF · 이미지 · 오피스 · hwp 파일</span>
+    </div>
+    <div th:if="${#lists.isEmpty(rows)}" class="empty-sm" style="padding:18px 22px">받아야 할 서류가 없어요.</div>
+    <ul class="doc-list">
+        <li th:each="r : ${rows}" class="doc-row" th:classappend="${r.missingRequired()} ? 'warn'">
+            <span class="doc-ic" aria-hidden="true"></span>
+            <div class="doc-body">
+                <div class="doc-name">
+                    <b th:text="${r.type().name}">통장 사본</b>
+                    <span th:if="${r.type().required}" class="chip outline">필수</span>
+                    <span class="chip" th:classappend="${r.type().scope.name() == 'ADMIN_ONLY'} ? 'red' : 'grey'"
+                          th:title="|열람 : ${r.type().scope.label}|" th:text="${r.type().scope.name() == 'ADMIN_ONLY'} ? '관리자만 열람' : ${r.type().scope.label}">본인 · 관리자</span>
+                </div>
+                <div class="doc-sub" th:if="${r.doc() != null}">
+                    <a th:href="@{|/hr/docs/${r.doc().id}/file|}" class="doc-file" th:text="${r.doc().file.originalName}">통장사본.pdf</a>
+                    <span class="faint" th:text="|${#temporals.format(r.doc().uploadedAt, 'yyyy.M.d')} · ${r.doc().uploadedBy != null ? r.doc().uploadedBy.displayName : '-'}|">2026.11.20 · 관리자</span>
+                    <span th:if="${r.doc().expiresAt != null}" class="chip" th:classappend="${r.doc().expired} ? 'red' : 'grey'"
+                          th:text="|${r.doc().expired ? '만료' : '유효'} ${#temporals.format(r.doc().expiresAt, 'yyyy.M.d')}|">유효 2027.1.1</span>
+                </div>
+                <div class="doc-sub" th:if="${r.doc() == null}">
+                    <span th:if="${r.missingRequired()}" class="doc-warn" >필수 서류예요. 제출해 주세요</span>
+                    <span th:unless="${r.missingRequired()}" class="faint">아직 없어요</span>
+                    <span class="faint" th:if="${r.type().description}" th:text="| · ${r.type().description}|"></span>
+                </div>
+            </div>
+            <div class="doc-actions">
+                <span th:if="${r.doc() != null}" class="chip ok">✓ 첨부 완료</span>
+                <form th:if="${r.canUpload()}" th:action="${uploadUrl}" method="post" enctype="multipart/form-data" class="doc-upload" data-once>
+                    <input type="hidden" name="typeId" th:value="${r.type().id}">
+                    <label class="btn sm" th:classappend="${r.missingRequired()} ? 'primary' : ''">
+                        <span th:text="${r.doc() == null} ? '제출' : '교체'">제출</span>
+                        <input type="file" name="file" hidden accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.hwpx,.txt,.zip"
+                               onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"
+                               th:aria-label="|${r.type().name} 파일 고르기|"></label>
+                </form>
+                <form th:if="${r.canDelete()}" th:action="${deleteBase + '/' + r.doc().id + '/delete'}" method="post" class="inline">
+                    <button type="submit" class="btn sm ghost" th:attr="data-confirm=|${r.type().name} 서류를 지울까요?|"
+                            data-confirm-body="파일이 지워지고 되돌릴 수 없어요. 필수 서류면 다시 미제출로 표시돼요." data-confirm-ok="지우기" data-danger>지우기</button>
+                </form>
+            </div>
+        </li>
+    </ul>
+</section>
+</html>

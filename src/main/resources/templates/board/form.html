@@ -22,6 +22,17 @@
             <input type="text" th:field="*{title}" class="input title" placeholder="제목" maxlength="150" autofocus>
             <p th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="field-error"></p>
         </div>
+        <div class="grid grid-2" th:if="${board.issueBoard}">
+            <div class="field"><label for="category">분류</label>
+                <select th:field="*{category}" class="select">
+                    <option th:each="c : ${issueCategories}" th:value="${c}" th:text="${c.label}">재고</option>
+                </select></div>
+            <div class="field"><label for="workplaceId">지점</label>
+                <select th:field="*{workplaceId}" class="select">
+                    <option value="">지점 없음 (본사 등)</option>
+                    <option th:each="w : ${issueWorkplaces}" th:value="${w.id}" th:text="${w.name}">강남점</option>
+                </select></div>
+        </div>
         <div class="field">
             <label for="content">내용</label>
             <textarea th:field="*{content}" class="textarea" rows="10" style="min-height:220px"
