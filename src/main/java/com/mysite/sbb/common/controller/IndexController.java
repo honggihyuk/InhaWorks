@@ -30,6 +30,7 @@ public class IndexController {
     @GetMapping("/")
     public String index(Principal principal, Model model) {
         Member me = memberService.getMember(principal.getName());
+        if (me.isAdmin()) return "redirect:/admin";      // 관리자의 첫 화면은 관리자 대시보드
         LocalDate today = LocalDate.now();
         model.addAttribute("today", today);
         model.addAttribute("attendance", attendanceService.getToday(me));

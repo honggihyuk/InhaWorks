@@ -407,6 +407,7 @@ public TodoAssignment review(...)   // 검수 / 결재 / 출퇴근 / 휴가 승�
 | 항목 | 내용 | 설정 |
 |---|---|---|
 | 로그인 분리 | `/admin/**` 는 관리자 체인(관리자 로그인 화면, ADMIN 만), 나머지는 직원 체인 | `SecurityConfig` |
+| 로그인 계정 종류 | 직원 로그인에서는 관리자 계정을, 관리자 로그인에서는 직원 계정을 받지 않는다 (비밀번호 확인 **뒤** 검사 → 틀린 비밀번호는 언제나 일반 오류라 계정 종류가 드러나지 않음). 맞지 않으면 `?wrongPage` 안내 + 반대쪽 로그인 링크. 이미 로그인한 관리자가 `/`·`/member/login` 에 오면 `/admin`. 두 폼은 `autocomplete="section-admin …" / "section-member …"` 로 자동 완성을 나눈다 | `SecurityConfig.loginManager`, `WrongLoginPageException`, `LoginPageSeparationTest` |
 | 관리자 IP 제한 | 허용 IP(앞부분 일치)만 `/admin/**` 접근, 비우면 제한 없음 | `app.security.admin-allowed-ips` |
 | 일괄 다운로드 제한 | 엑셀·zip 은 관리자만, 설정으로 끌 수 있음 (다운로드는 로그로 남김) | `app.security.bulk-download-enabled` |
 | 퇴사 처리 | 지우지 않고 비활성화 → 로그인 불가, 새 할 일 배정 제외 | `Member.active` |

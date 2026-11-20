@@ -21,13 +21,15 @@
     <div th:if="${param.error}" class="alert danger" role="alert">관리자ID 또는 비밀번호를 확인해 주세요.</div>
     <!-- 이용자 계정으로 /admin 에 들어온 경우 : SecurityConfig 의 accessDeniedPage -->
     <div th:if="${param.denied}" class="alert danger" role="alert">관리자 권한이 없는 계정입니다. 관리자 계정으로 로그인해 주세요.</div>
+    <div th:if="${param.wrongPage}" class="alert danger" role="alert">직원 계정은 직원 로그인에서 로그인해 주세요.
+        <a th:href="@{/member/login}" class="link">직원 로그인 ›</a></div>
     <div th:if="${param.logout}" class="alert info" role="status">로그아웃되었습니다.</div>
 
     <form th:action="@{/admin/login}" method="post" class="stack" style="gap:14px">
         <div class="field"><label for="username">관리자ID</label>
-            <input type="text" name="username" id="username" class="input" autocomplete="username" required autofocus></div>
+            <input type="text" name="username" id="username" class="input" autocomplete="section-admin username" required autofocus></div>
         <div class="field"><label for="password">비밀번호</label>
-            <input type="password" name="password" id="password" class="input" autocomplete="current-password" required></div>
+            <input type="password" name="password" id="password" class="input" autocomplete="section-admin current-password" required></div>
         <button type="submit" class="btn primary lg block">관리자 로그인</button>
     </form>
 

@@ -222,6 +222,7 @@
 - 뒤 화면은 `fragments/auth-backdrop :: backdrop('admin' | 'member')` 의 **정적 예시**다. 로그인 전이므로 DB 데이터를 쓰지 않고, 숫자 몇 개 외에는 회색 막대(`.sk`) 스켈레톤
 - 뒤 화면은 `aria-hidden="true"` + `inert` + `pointer-events: none` : 화면 읽기·Tab·클릭이 들어가지 않는다. 페이지는 스크롤하지 않고, 카드가 화면보다 길면 막 안에서만 스크롤
 - 흐림 막 : `backdrop-filter: blur(10px) saturate(160%)` (+ `-webkit-`), 흰색 45% 바탕. 지원하지 않는 브라우저(`@supports not`)와 `prefers-reduced-transparency` 에서는 거의 불투명한 연파랑 흰 바탕
+- 계정 종류가 맞지 않으면(관리자 계정으로 직원 로그인 등) 빨간 안내 + 반대쪽 로그인 링크 (`?wrongPage`)
 - 카드 : 흰 바탕 · 20px 모서리 · 큰 그림자, 0.32초 동안 살짝 떠오르며 나타난다 (`prefers-reduced-motion` 이면 흐려지기만). 폼·오류·로그아웃 안내·CSRF 는 그대로
 
 ### 4.13 이슈 & 해결

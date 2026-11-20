@@ -15,8 +15,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class MemberController {
 
     // 로그인 화면 (POST /member/login 은 Spring Security 가 처리하므로 GET 만 만든다)
+    //  이미 로그인했다면 첫 화면으로 (관리자는 /admin)
     @GetMapping("/login")
-    public String login() {
+    public String login(org.springframework.security.core.Authentication auth) {
+        if (auth != null && auth.isAuthenticated()) {
+            boolean admin = auth.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+            return admin ? "redirect:/admin" : "redirect:/";
+        }
         return "member/login";
     }
 }

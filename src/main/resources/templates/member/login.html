@@ -20,13 +20,15 @@
     <p class="muted">출퇴근 · 할 일 · 보고서 · 게시판을 한곳에서</p>
 
     <div th:if="${param.error}" class="alert danger" role="alert">사용자ID 또는 비밀번호를 확인해 주세요. (퇴사 처리된 계정은 로그인할 수 없어요)</div>
+    <div th:if="${param.wrongPage}" class="alert danger" role="alert">관리자 계정은 관리자 로그인에서 로그인해 주세요.
+        <a th:href="@{/admin/login}" class="link">관리자 로그인 ›</a></div>
     <div th:if="${param.logout}" class="alert info" role="status">로그아웃되었습니다.</div>
 
     <form th:action="@{/member/login}" method="post" class="stack" style="gap:14px">
         <div class="field"><label for="username">사용자ID</label>
-            <input type="text" name="username" id="username" class="input" placeholder="아이디" autocomplete="username" required autofocus></div>
+            <input type="text" name="username" id="username" class="input" placeholder="아이디" autocomplete="section-member username" required autofocus></div>
         <div class="field"><label for="password">비밀번호</label>
-            <input type="password" name="password" id="password" class="input" placeholder="비밀번호" autocomplete="current-password" required></div>
+            <input type="password" name="password" id="password" class="input" placeholder="비밀번호" autocomplete="section-member current-password" required></div>
         <button type="submit" class="btn primary lg block">로그인</button>
     </form>
 
