@@ -216,6 +216,14 @@
 - 서류 `.doc-row` : 문서 아이콘 · 이름 · 필수 칩 · 열람 권한 칩(‘관리자만 열람’만 빨강) · 파일 링크 · 오른쪽 "✓ 첨부 완료"(연초록) + 교체/지우기. 필수 미제출은 아이콘이 연한 빨강 + "⚠ 필수 서류예요" 한 줄, **제출 버튼은 필수 미제출일 때만 파랑**
 - 인사 서류 파일은 `/uploads/**`(공개) 가 아니라 `app.private-dir` 에 두고 `/hr/docs/{id}/file` 에서 권한 확인 후 내려준다 (`no-store`)
 
+### 4.14 로그인 (`member/login`, `admin/login`)
+
+- 세 겹 : 뒤 `.auth-backdrop`(앱 화면 모양 : 사이드바 + 상단바 + 관리자는 대시보드 / 직원은 홈) → 가운데 흐림 막 `.auth-scrim` → 로그인 카드 `.auth-card`
+- 뒤 화면은 `fragments/auth-backdrop :: backdrop('admin' | 'member')` 의 **정적 예시**다. 로그인 전이므로 DB 데이터를 쓰지 않고, 숫자 몇 개 외에는 회색 막대(`.sk`) 스켈레톤
+- 뒤 화면은 `aria-hidden="true"` + `inert` + `pointer-events: none` : 화면 읽기·Tab·클릭이 들어가지 않는다. 페이지는 스크롤하지 않고, 카드가 화면보다 길면 막 안에서만 스크롤
+- 흐림 막 : `backdrop-filter: blur(10px) saturate(160%)` (+ `-webkit-`), 흰색 45% 바탕. 지원하지 않는 브라우저(`@supports not`)와 `prefers-reduced-transparency` 에서는 거의 불투명한 연파랑 흰 바탕
+- 카드 : 흰 바탕 · 20px 모서리 · 큰 그림자, 0.32초 동안 살짝 떠오르며 나타난다 (`prefers-reduced-motion` 이면 흐려지기만). 폼·오류·로그아웃 안내·CSRF 는 그대로
+
 ### 4.13 이슈 & 해결
 
 - 지점 칩 → 통계 카드 2장 `.istat` (왼쪽 색 칸 : 처리 대기 연한 빨강 / 해결 완료 연한 파랑, 오른쪽 흰 칸 : 평균·최장 일) → 상태 세그먼트 + 분류 select → 카드 목록 `.issue-card`

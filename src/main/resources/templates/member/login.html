@@ -11,9 +11,12 @@
 <!-- 직원 로그인 : POST /member/login 은 Spring Security 가 처리한다 (input 이름은 username, password)
      th:action 을 쓰면 CSRF 토큰이 hidden 으로 자동 추가된다 -->
 <body class="ui auth-page">
-<main class="auth-card">
+<!-- 뒤 : 앱 화면 모양(정적 예시) → 위 : 흐림 막(backdrop-filter) → 가운데 : 로그인 카드 -->
+<div th:replace="~{fragments/auth-backdrop :: backdrop('member')}"></div>
+<div class="auth-scrim">
+<main class="auth-card" aria-labelledby="auth-title">
     <div class="brand"><span class="brand-mark">I</span>InhaWorks</div>
-    <h1 class="auth-title">로그인</h1>
+    <h1 class="auth-title" id="auth-title">로그인</h1>
     <p class="muted">출퇴근 · 할 일 · 보고서 · 게시판을 한곳에서</p>
 
     <div th:if="${param.error}" class="alert danger" role="alert">사용자ID 또는 비밀번호를 확인해 주세요. (퇴사 처리된 계정은 로그인할 수 없어요)</div>
@@ -30,5 +33,6 @@
     <p class="auth-foot">계정은 관리자가 만들어 드려요. 비밀번호를 잊었다면 관리자에게 문의하세요.</p>
     <p class="auth-foot"><a th:href="@{/admin/login}">관리자 로그인</a></p>
 </main>
+</div>
 </body>
 </html>
