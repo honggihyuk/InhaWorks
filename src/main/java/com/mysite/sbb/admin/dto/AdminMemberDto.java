@@ -36,6 +36,8 @@ public class AdminMemberDto {
 
     private Long workplaceId;               // 근무지 / 매장 (선택)
 
+    private Long workPolicyId;              // 근무 정책 (근무제)
+
     @Size(max = 30)
     private String position;                // 직급
 
@@ -55,6 +57,7 @@ public class AdminMemberDto {
         dto.setEmail(m.getEmail());
         dto.setTeamId(m.getTeam() == null ? null : m.getTeam().getId());
         dto.setWorkplaceId(m.getWorkplace() == null ? null : m.getWorkplace().getId());
+        dto.setWorkPolicyId(m.getWorkPolicy() == null ? null : m.getWorkPolicy().getId());
         dto.setPosition(m.getPosition());
         dto.setPhone(m.getPhone());
         dto.setRole(m.getRole() == null ? MemberRole.USER : m.getRole());

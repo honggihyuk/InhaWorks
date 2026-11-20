@@ -19,7 +19,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
-// 직원 : 출퇴근 / 스케줄(주간) / 휴가 신청
+// 직원 : 출퇴근(/attendance) / 스케줄(/schedule : 내 근무제 + 주간·월별) / 휴가 신청(/leave) — 메뉴도 셋으로 나뉜다
 @Controller
 @RequiredArgsConstructor
 public class AttendanceController {
@@ -72,6 +72,8 @@ public class AttendanceController {
         model.addAttribute("days", days);
         model.addAttribute("byDay", byDay);
         model.addAttribute("today", LocalDate.now());
+        model.addAttribute("myPolicy", me.getWorkPolicy());
+        model.addAttribute("weekMinutes", mine.stream().mapToInt(WorkSchedule::getWorkMinutes).sum());
         return "attendance/schedule";
     }
 
@@ -81,6 +83,7 @@ public class AttendanceController {
                                 Principal principal, Model model) {
         Member me = memberService.getMember(principal.getName());
         model.addAttribute("cal", attendanceService.getMonthCalendar(month == null ? YearMonth.now() : month, me.getId()));
+        model.addAttribute("myPolicy", me.getWorkPolicy());
         return "attendance/schedule-month";
     }
 

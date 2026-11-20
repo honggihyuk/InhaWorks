@@ -1,5 +1,7 @@
 package com.mysite.sbb.admin.service;
 
+import com.mysite.sbb.attendance.entity.WorkPolicy;
+import com.mysite.sbb.attendance.service.WorkPolicyService;
 import com.mysite.sbb.admin.dto.AdminMemberDto;
 import com.mysite.sbb.member.entity.Member;
 import com.mysite.sbb.member.repository.MemberRepository;
@@ -22,6 +24,7 @@ public class AdminMemberService {
     private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationService organizationService;
+    private final WorkPolicyService workPolicyService;
 
     @Transactional(readOnly = true)
     public Member getMember(Long id) {
@@ -73,6 +76,10 @@ public class AdminMemberService {
         member.setEmail(MemberService.emptyToNull(dto.getEmail()));
         member.setTeam(organizationService.getTeam(dto.getTeamId()));
         member.setWorkplace(organizationService.getWorkplace(dto.getWorkplaceId()));
+        // 근무 정책 : 고르지 않으면 그대로 두고, 새 직원이면 첫 정책
+        WorkPolicy policy = workPolicyService.findOrNull(dto.getWorkPolicyId());
+        if (policy != null) member.setWorkPolicy(policy);
+        else if (member.getWorkPolicy() == null && !workPolicyService.getPolicies().isEmpty()) member.setWorkPolicy(workPolicyService.getPolicies().get(0));
         member.setPosition(MemberService.emptyToNull(dto.getPosition()));
         member.setPhone(MemberService.emptyToNull(dto.getPhone()));
         member.setRole(dto.getRole());

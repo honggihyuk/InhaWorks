@@ -27,6 +27,7 @@ public class AdminController {
     private final MemberService memberService;
     private final AdminMemberService adminMemberService;
     private final OrganizationService organizationService;
+    private final com.mysite.sbb.attendance.service.WorkPolicyService workPolicyService;
 
     // 관리자 로그인 화면 (POST /admin/login 은 Spring Security 가 처리)
     @GetMapping("/login")
@@ -166,6 +167,7 @@ public class AdminController {
         model.addAttribute("roles", MemberRole.values());
         model.addAttribute("teams", organizationService.getTeams());
         model.addAttribute("workplaces", organizationService.getWorkplaces());
+        model.addAttribute("policies", workPolicyService.getPolicies());
         return "admin/member-form";
     }
 

@@ -1,22 +1,36 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<!-- 관리자 근무 배정 폼 (주별 / 월별 공통)
-     배정한 뒤에도 고른 직원·시간·메모가 그대로 남고, 날짜는 다음 날로 넘어간다 (form : ScheduleFormState)
-     view = 'month' 이면 저장 뒤 월별 화면으로 돌아온다 -->
+<!-- 관리자 근무 배정 폼 (리스트 / 캘린더 공통)
+     배정한 뒤에도 고른 직원·근무 유형·시간·메모가 그대로 남고, 날짜는 다음 날로 넘어간다 (form : ScheduleFormState)
+     근무 유형은 고른 직원의 근무제에 있는 것만 보인다 (app.js [data-shift-form]). 유형을 고르면 시각이 채워지고, 휴무는 시각 없이 저장
+     저장한 주의 근로시간이 52시간을 넘으면 경고 토스트
+     view = 'month' 이면 저장 뒤 캘린더로 돌아온다 -->
 <section th:fragment="form(view, who)" class="card" id="assign">
-    <div class="card-head"><h2>근무 배정</h2><span class="meta">저장하면 같은 직원으로 다음 날짜가 준비돼요</span></div>
-    <form th:action="@{/admin/schedule}" method="post" class="form-grid" style="align-items:end">
+    <div class="card-head"><h2>근무 배정</h2><span class="meta">직원의 근무제에 맞는 근무 유형만 보여요 · 주 52시간이 넘으면 알려 드려요</span></div>
+    <form th:action="@{/admin/schedule}" method="post" class="form-grid" style="align-items:end" data-shift-form>
         <input type="hidden" name="view" th:value="${view}">
         <input type="hidden" name="who" th:value="${who}">
+        <input type="hidden" name="policy" th:value="${policy?.id}">
         <div class="field"><label for="memberId">직원</label>
-            <select id="memberId" name="memberId" class="select" required>
-                <option th:each="m : ${members}" th:value="${m.id}" th:selected="${form.memberId == m.id}"
-                        th:text="|${m.displayName} (${m.workplace != null ? m.workplace.name : '-'})|">이서연</option>
+            <select id="memberId" name="memberId" class="select" required data-shift-member>
+                <option th:each="m : ${members}" th:if="${policy == null or (m.workPolicy != null and m.workPolicy.id == policy.id)}"
+                        th:value="${m.id}" th:selected="${form.memberId == m.id}"
+                        th:attr="data-policy=${m.workPolicy?.id}"
+                        th:text="|${m.displayName} · ${m.workPolicy != null ? m.workPolicy.type.shortLabel : '근무제 없음'}|">이서연 · 스케줄 근무</option>
             </select></div>
         <div class="field"><label for="sdate">날짜</label><input id="sdate" type="date" name="date" class="input" th:value="${form.date}" required></div>
+        <div class="field"><label for="shiftTypeId">근무 유형</label>
+            <select id="shiftTypeId" name="shiftTypeId" class="select" data-shift-type>
+                <option value="">직접 입력</option>
+                <th:block th:each="p : ${policies}">
+                    <option th:each="t : ${p.shiftTypes}" th:value="${t.id}" th:selected="${form.shiftTypeId == t.id}"
+                            th:attr="data-policy=${p.id},data-start=${t.startTime},data-end=${t.endTime},data-off=${t.off}"
+                            th:text="${t.off} ? ${t.name} : |${t.name} ${t.timeText}|">오픈 06:00–12:00</option>
+                </th:block>
+            </select></div>
         <div class="field"><label for="st">시작</label><input id="st" type="time" name="startTime" class="input" th:value="${form.startTime}" required></div>
         <div class="field"><label for="et">끝</label><input id="et" type="time" name="endTime" class="input" th:value="${form.endTime}" required></div>
-        <div class="field"><label for="memo">메모</label><input id="memo" type="text" name="memo" class="input" maxlength="100" placeholder="오픈조" th:value="${form.memo}"></div>
+        <div class="field"><label for="memo">메모</label><input id="memo" type="text" name="memo" class="input" maxlength="100" placeholder="대타, 행사 지원" th:value="${form.memo}"></div>
         <button type="submit" class="btn primary">배정</button>
     </form>
 </section>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>근무제 관리</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/schedule}">스케줄</a><span class="sep">›</span><b>근무제 관리</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">근무제 관리</h1>
+            <p class="page-sub">회사 근무제에 맞게 근무 정책을 만들고, 정책마다 근무 유형과 직원을 정해요</p>
+        </div>
+        <div class="actions"><a th:href="@{/admin/schedule}" class="btn">스케줄로</a></div>
+    </div>
+
+    <section class="policy-grid" aria-label="근무 정책">
+        <a th:each="tab : ${tabs}" th:with="p=${tab.policy()}" th:href="@{|/admin/schedule/policies/${p.id}|}" class="card policy-tile">
+            <div class="row" style="justify-content:space-between">
+                <span class="chip" th:classappend="${p.toneOrDefault.css}" th:text="${p.type.label}">스케줄 근무제</span>
+                <span class="faces" aria-hidden="true" th:unless="${tab.count() == 0}">
+                    <th:block th:each="m : ${tab.faces()}"><span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span></th:block></span>
+            </div>
+            <b class="pt-name" th:text="${p.name}">매장 스케줄 근무</b>
+            <span class="muted small" th:text="|주 ${p.weeklyHours}시간 · ${p.workDaysText} · ${p.timeText}|">주 40시간 · 월~일</span>
+            <span class="small"><b class="tnum" th:text="${tab.count()}">3</b><span class="muted">명</span>
+                <span class="faint" th:text="| · 근무 유형 ${#lists.size(p.shiftTypes)}개|"> · 근무 유형 4개</span></span>
+        </a>
+        <div th:if="${#lists.isEmpty(tabs)}" class="card empty"><b>근무 정책이 없어요</b><span>아래에서 첫 정책을 만들어 주세요</span></div>
+    </section>
+
+    <section class="card" id="new">
+        <div class="card-head"><h2>새 근무 정책</h2><span class="meta">만든 뒤 근무 유형과 직원을 정해요</span></div>
+        <form th:action="@{/admin/schedule/policies}" method="post" th:object="${policyForm}" class="stack" data-once>
+            <th:block th:replace="~{admin/policy-form :: fields}"/>
+            <div class="row" style="justify-content:flex-end"><button type="submit" class="btn primary">정책 만들기</button></div>
+        </form>
+    </section>
+
+    <section class="card soft">
+        <div class="card-head"><h2>근무제 종류</h2></div>
+        <ul class="type-list">
+            <li th:each="t : ${types}"><span class="chip" th:classappend="${t.tone.css}" th:text="${t.shortLabel}">탄력 근로</span>
+                <span><b th:text="${t.label}">탄력적 근무제</b> <span class="muted" th:text="${t.description}">설명</span></span></li>
+        </ul>
+    </section>
+</main>
+</body>
+</html>

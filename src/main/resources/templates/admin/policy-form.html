@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 근무 정책 입력 칸 (만들기 / 고치기 공통) : th:object = policyForm -->
+<th:block th:fragment="fields">
+    <div class="grid grid-2">
+        <div class="field"><label for="pname">이름</label>
+            <input id="pname" type="text" name="name" class="input" maxlength="40" required placeholder="본사 시차 출퇴근" th:value="*{name}"></div>
+        <div class="field"><label for="ptype">근무제</label>
+            <select id="ptype" name="type" class="select">
+                <option th:each="t : ${types}" th:value="${t}" th:selected="*{type} == ${t}" th:text="|${t.label} · ${t.shortLabel}|">고정 근무제</option>
+            </select></div>
+    </div>
+    <div class="field"><span class="label">근무 요일</span>
+        <div class="toggle-chips" role="group" aria-label="근무 요일">
+            <label th:each="d : ${weekDays}"><input type="checkbox" name="workDays" th:value="${d}" th:checked="${policyForm.workDays.contains(d)}">
+                <span th:text="${T(com.mysite.sbb.attendance.entity.WorkPolicy).dayLabel(d)}">월</span></label>
+        </div></div>
+    <div class="form-grid">
+        <div class="field"><label for="pweekly">1주 소정근로시간</label>
+            <input id="pweekly" type="number" name="weeklyHours" class="input" min="1" max="52" th:value="*{weeklyHours}" required></div>
+        <div class="field"><label for="pstart">기본 출근</label>
+            <input id="pstart" type="time" name="startTime" class="input" th:value="*{startTime}"></div>
+        <div class="field"><label for="pend">기본 퇴근</label>
+            <input id="pend" type="time" name="endTime" class="input" th:value="*{endTime}"></div>
+        <div class="field"><label for="pbreak">휴게시간 (분)</label>
+            <input id="pbreak" type="number" name="breakMinutes" class="input" min="0" max="240" step="10" th:value="*{breakMinutes}"></div>
+        <div class="field"><label for="pplace">근무지</label>
+            <select id="pplace" name="workplaceId" class="select">
+                <option value="">정하지 않음</option>
+                <option th:each="w : ${workplaces}" th:value="${w.id}" th:selected="*{workplaceId} == ${w.id}" th:text="${w.name}">인하점</option>
+            </select></div>
+        <div class="field"><label for="ptone">색</label>
+            <select id="ptone" name="tone" class="select">
+                <option value="">근무제 기본색</option>
+                <option th:each="c : ${tones}" th:value="${c}" th:selected="*{tone} == ${c}" th:text="${c.label}">파랑</option>
+            </select></div>
+    </div>
+    <p class="faint small">재량·간주 근무제처럼 출퇴근 시각이 없으면 기본 출근·퇴근을 비워 두세요.</p>
+</th:block>
+</html>

@@ -6,9 +6,11 @@ import com.mysite.sbb.attendance.dto.MonthCalendar;
 import com.mysite.sbb.attendance.dto.WeekRow;
 import com.mysite.sbb.attendance.entity.Attendance;
 import com.mysite.sbb.attendance.entity.LeaveRequest;
+import com.mysite.sbb.attendance.entity.ShiftType;
 import com.mysite.sbb.attendance.entity.WorkSchedule;
 import com.mysite.sbb.attendance.repository.AttendanceRepository;
 import com.mysite.sbb.attendance.repository.LeaveRequestRepository;
+import com.mysite.sbb.attendance.repository.ShiftTypeRepository;
 import com.mysite.sbb.attendance.repository.WorkScheduleRepository;
 import com.mysite.sbb.common.exception.BusinessException;
 import com.mysite.sbb.member.entity.Member;
@@ -42,6 +44,7 @@ public class AttendanceService {
     private final AttendanceRepository attendanceRepository;
     private final WorkScheduleRepository workScheduleRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final ShiftTypeRepository shiftTypeRepository;
     private final MemberService memberService;
     private final OutboxService outboxService;
 
@@ -97,30 +100,45 @@ public class AttendanceService {
         return workScheduleRepository.findByMemberIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAsc(me.getId(), monday, monday.plusDays(6));
     }
 
-    // 관리자 : 직원 × 요일 표
+    // 관리자 : 직원 × 요일 표 (policyId 가 있으면 그 근무제 직원만)
     @Transactional(readOnly = true)
-    public List<WeekRow> getWeekTable(LocalDate monday) {
+    public List<WeekRow> getWeekTable(LocalDate monday, Long policyId) {
         List<WorkSchedule> all = workScheduleRepository.findByWorkDateBetweenOrderByWorkDateAscStartTimeAsc(monday, monday.plusDays(6));
         List<WeekRow> rows = new ArrayList<>();
         for (Member m : memberService.getActiveMembers()) {
+            if (!inPolicy(m, policyId)) continue;
+            List<WorkSchedule> mine = all.stream().filter(s -> s.getMember().getId().equals(m.getId())).toList();
             List<List<WorkSchedule>> days = new ArrayList<>();
             for (int i = 0; i < 7; i++) {
                 LocalDate d = monday.plusDays(i);
-                days.add(all.stream().filter(s -> s.getMember().getId().equals(m.getId()) && s.getWorkDate().equals(d)).toList());
+                days.add(mine.stream().filter(s -> s.getWorkDate().equals(d)).toList());
             }
-            rows.add(new WeekRow(m, days));
+            rows.add(new WeekRow(m, days, mine.stream().mapToInt(WorkSchedule::getWorkMinutes).sum()));
         }
         return rows;
     }
 
-    // 월별 달력 (memberId 가 있으면 그 직원 근무만)
+    private static boolean inPolicy(Member m, Long policyId) {
+        return policyId == null || (m.getWorkPolicy() != null && m.getWorkPolicy().getId().equals(policyId));
+    }
+
+    // 월별 달력 (memberId : 그 직원만, policyId : 그 근무제 직원만, shiftTypeId : 그 근무 유형만)
     @Transactional(readOnly = true)
     public MonthCalendar getMonthCalendar(YearMonth month, Long memberId) {
+        return getMonthCalendar(month, memberId, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public MonthCalendar getMonthCalendar(YearMonth month, Long memberId, Long policyId, Long shiftTypeId) {
         LocalDate first = weekStart(month.atDay(1));
         LocalDate last = month.atEndOfMonth().with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
-        List<WorkSchedule> all = memberId == null
+        List<WorkSchedule> all = (memberId == null
                 ? workScheduleRepository.findByWorkDateBetweenOrderByWorkDateAscStartTimeAsc(first, last)
-                : workScheduleRepository.findByMemberIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAsc(memberId, first, last);
+                : workScheduleRepository.findByMemberIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAsc(memberId, first, last))
+                .stream()
+                .filter(s -> inPolicy(s.getMember(), policyId))
+                .filter(s -> shiftTypeId == null || (s.getShiftType() != null && s.getShiftType().getId().equals(shiftTypeId)))
+                .toList();
         LocalDate today = LocalDate.now();
         List<List<MonthCalendar.Day>> weeks = new ArrayList<>();
         for (LocalDate d = first; !d.isAfter(last); d = d.plusDays(7)) {
@@ -136,16 +154,48 @@ public class AttendanceService {
         return new MonthCalendar(month, weeks, total);
     }
 
+    // 배정 결과 : 저장한 근무 + 그 주 근로시간(분). 52시간을 넘으면 화면에서 경고한다
+    public record AddResult(WorkSchedule schedule, int weekMinutes) {
+        public boolean over52() {
+            return weekMinutes > WorkPolicyService.WEEKLY_LIMIT_MINUTES;
+        }
+    }
+
     public WorkSchedule addSchedule(Long memberId, LocalDate date, LocalTime start, LocalTime end, String memo, String adminUsername) {
-        if (!end.isAfter(start)) throw new BusinessException("끝나는 시각이 시작 시각보다 늦어야 해요.");
+        return addSchedule(memberId, date, start, end, memo, null, adminUsername).schedule();
+    }
+
+    // shiftTypeId 가 있으면 그 근무 유형으로 (시각을 비우면 유형의 시각, 휴무 유형이면 시간 없이)
+    public AddResult addSchedule(Long memberId, LocalDate date, LocalTime start, LocalTime end, String memo,
+                                 Long shiftTypeId, String adminUsername) {
+        ShiftType shift = shiftTypeId == null ? null : shiftTypeRepository.findById(shiftTypeId)
+                .orElseThrow(() -> new BusinessException("근무 유형을 찾을 수 없어요."));
+        if (shift != null && shift.isOff()) {
+            start = LocalTime.MIDNIGHT;
+            end = LocalTime.MIDNIGHT;
+        } else {
+            if (shift != null && start == null) start = shift.getStartTime();
+            if (shift != null && end == null) end = shift.getEndTime();
+            if (start == null || end == null) throw new BusinessException("시작·끝 시각을 적어 주세요.");
+            if (!end.isAfter(start)) throw new BusinessException("끝나는 시각이 시작 시각보다 늦어야 해요.");
+        }
         Member member = memberService.getMember(memberId);
         WorkSchedule s = workScheduleRepository.save(WorkSchedule.builder()
-                .member(member).workDate(date).startTime(start).endTime(end)
+                .member(member).workDate(date).startTime(start).endTime(end).shiftType(shift)
                 .memo(MemberService.emptyToNull(memo)).createdBy(memberService.getMember(adminUsername)).build());
+        String what = s.isOff() ? s.getLabel() : (shift != null ? shift.getName() + " " : "") + start + " ~ " + end;
         outboxService.notify(List.of(member), NotificationType.ATTENDANCE, "근무 스케줄 배정",
-                date + " " + start + " ~ " + end + (s.getMemo() == null ? "" : " (" + s.getMemo() + ")"),
+                date + " " + what + (s.getMemo() == null ? "" : " (" + s.getMemo() + ")"),
                 "/schedule?week=" + weekStart(date), "WorkSchedule", s.getId(), null);
-        return s;
+        return new AddResult(s, getWeekMinutes(memberId, date));
+    }
+
+    // 그 날짜가 들어 있는 주(월~일)의 근로시간 합 (분)
+    @Transactional(readOnly = true)
+    public int getWeekMinutes(Long memberId, LocalDate anyDay) {
+        LocalDate monday = weekStart(anyDay);
+        return workScheduleRepository.findByMemberIdAndWorkDateBetweenOrderByWorkDateAscStartTimeAsc(memberId, monday, monday.plusDays(6))
+                .stream().mapToInt(WorkSchedule::getWorkMinutes).sum();
     }
 
     public void deleteSchedule(Long id) {

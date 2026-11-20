@@ -4,17 +4,16 @@
       layout:decorate="~{layouts/layout}">
 <head><title>휴가 승인</title></head>
 <body>
-<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>휴가 승인</b></nav>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>휴가</b></nav>
 
 <main layout:fragment="content" class="content">
     <div class="page-header">
         <div>
-            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <h1 class="page-title">휴가</h1>
             <p class="page-sub" th:text="|승인 대기 ${#lists.size(pending)}건|">승인 대기 1건</p>
         </div>
     </div>
 
-    <div th:replace="~{admin/attendance-tabs :: tabs('leave')}"></div>
 
     <section class="card">
         <div class="card-head"><h2>승인 대기</h2></div>

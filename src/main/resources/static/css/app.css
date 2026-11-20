@@ -629,3 +629,101 @@ body.auth-page { min-height: 100vh; display: grid; place-items: center; padding:
 .auth-title { font-size: 28px; font-weight: 700; letter-spacing: -.025em; line-height: 1.2; }
 .auth-foot { font-size: 13px; color: var(--muted); text-align: center; }
 .auth-foot a { color: var(--blue); font-weight: 600; }
+
+/* ==========================================================================
+   근무제 · 근무 유형 (스케줄)  — docs/design.md 4.11
+   연한 파스텔 색(.tone-*)은 근무제·근무 유형을 구분하는 데만 쓴다. 글자는 진하게, 바탕은 아주 연하게
+   ========================================================================== */
+.tone-blue   { --tone-bg: #EEF4FF; --tone-fg: #2563EB; --tone-bd: #D6E4FF; }
+.tone-teal   { --tone-bg: #E8F7F6; --tone-fg: #0F766E; --tone-bd: #C5EBE7; }
+.tone-green  { --tone-bg: #ECF8EF; --tone-fg: #15803D; --tone-bd: #CBEBD3; }
+.tone-yellow { --tone-bg: #FFF7E0; --tone-fg: #A16207; --tone-bd: #F6E3A6; }
+.tone-orange { --tone-bg: #FFF1E7; --tone-fg: #C2410C; --tone-bd: #F9D4BA; }
+.tone-red    { --tone-bg: #FEF3F2; --tone-fg: #B42318; --tone-bd: #F3C9C4; }
+.tone-pink   { --tone-bg: #FDF0F6; --tone-fg: #BE185D; --tone-bd: #F5CDE0; }
+.tone-purple { --tone-bg: #F4F0FF; --tone-fg: #6D28D9; --tone-bd: #DDD2FB; }
+.tone-grey   { --tone-bg: #F2F4F7; --tone-fg: #5B6475; --tone-bd: #E4E7EC; }
+.chip[class*="tone-"] { background: var(--tone-bg); color: var(--tone-fg); border-color: var(--tone-bd); }
+a.chip[class*="tone-"]:hover, a.chip.outline:hover { color: var(--tone-fg, var(--text)) !important; filter: saturate(1.2); }
+.chip.selected { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--tone-fg, var(--blue)); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--tone-fg, var(--faint)); }
+
+/* 근무제 탭 : 전체 + 정책마다 색 점 · 이름 · 얼굴 · 인원 */
+.policy-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; }
+.policy-tabs::-webkit-scrollbar { display: none; }
+.policy-tab { display: inline-flex; align-items: center; gap: 8px; flex: none; height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--border); background: #fff; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.policy-tab:hover { border-color: var(--lb-border); color: var(--text) !important; }
+.policy-tab.active { background: var(--lb2); border-color: var(--lb-border); }
+.policy-tab .count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #F2F4F7; color: var(--muted); font-size: 12px; display: inline-grid; place-items: center; }
+.policy-tab.active .count { background: #fff; color: var(--blue); }
+.policy-tab.add { color: var(--muted); font-weight: 500; border-style: dashed; }
+.faces { display: inline-flex; }
+.faces .avatar { width: 24px; height: 24px; font-size: 9px; border: 2px solid #fff; margin-left: -7px; }
+.faces .avatar:first-child { margin-left: 0; }
+
+/* 근무제 카드 : 요약 표 + 근무 유형 칩 */
+.policy-card { display: flex; flex-direction: column; gap: 14px; }
+.policy-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.policy-card-head h2 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; margin: 8px 0 2px; }
+.policy-week { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.policy-week b { font-size: 28px; font-weight: 700; letter-spacing: -.02em; color: var(--blue); }
+.policy-facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin: 0; background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px; }
+.policy-facts > div { padding: 12px 16px; min-width: 0; }
+.policy-facts > div + div { border-left: 1px solid var(--border); }
+.policy-facts dt { font-size: 12px; color: var(--muted); }
+.policy-facts dd { margin: 2px 0 0; font-weight: 600; }
+
+/* 리스트(주) 칸 안의 근무 */
+.shift-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; margin: 0 4px 4px 0; border-radius: 8px; font-size: 12px; white-space: nowrap; background: var(--tone-bg, var(--lb)); color: var(--text); border: 1px solid var(--tone-bd, var(--lb-border)); }
+.shift-pill b { font-weight: 600; color: var(--tone-fg, var(--text)); }
+.shift-pill button { border: 0; background: none; color: var(--faint); cursor: pointer; padding: 0 2px; font-size: 14px; line-height: 1; }
+.shift-pill button:hover { color: var(--danger); }
+table.week td .shift-pill { display: flex; justify-content: space-between; }
+.day-card .shift-pill { white-space: normal; }
+table.month-cal .shift-pill { display: flex; flex-wrap: wrap; margin: 0 0 4px; font-size: 11px; padding: 3px 6px; gap: 4px; }
+
+/* 캘린더(월) : 근무 유형별 색 블록 + 인원 + 사람 */
+.shift-block { border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; background: var(--tone-bg); border: 1px solid var(--tone-bd); }
+.sb-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12px; color: var(--tone-fg); }
+.sb-head b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-time { font-size: 11px; color: var(--muted); }
+.sb-people { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.sb-person { display: inline-flex; align-items: center; gap: 2px; padding: 1px 4px 1px 6px; border-radius: 6px; background: #fff; border: 1px solid var(--tone-bd); font-size: 11px; }
+.sb-person button { border: 0; background: none; color: var(--faint); cursor: pointer; padding: 0 2px; font-size: 13px; line-height: 1; }
+.sb-person button:hover { color: var(--danger); }
+
+/* 근무제 관리 */
+.policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.policy-tile { display: flex; flex-direction: column; gap: 8px; color: inherit; transition: border-color .15s var(--ease); }
+.policy-tile:hover { border-color: var(--lb-border); color: inherit !important; }
+.policy-tile .pt-name { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.shift-row { display: grid; grid-template-columns: 10px minmax(120px, 1fr) 118px 118px 96px auto auto auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.shift-row.new { border-bottom: 0; padding-top: 14px; grid-template-columns: 10px minmax(120px, 1fr) 118px 118px 96px auto auto; }
+.shift-row .input, .shift-row .select { min-height: 36px; padding: 6px 10px; }
+.shift-row .round-check { font-size: 13px; }
+.shift-row .round-check input { width: 18px; height: 18px; }
+.member-check { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.member-check:has(input:checked) { background: var(--lb2); border-color: var(--lb-border); }
+.member-check input { accent-color: var(--blue); }
+.member-check .mc-body { min-width: 0; line-height: 1.3; }
+.member-check .mc-body b { display: block; font-size: 13px; }
+.member-check .mc-body small { color: var(--muted); font-size: 11px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#members .check-grid { max-height: none; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.type-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.type-list li { display: flex; gap: 10px; align-items: baseline; font-size: 13px; }
+.type-list .chip { flex: none; }
+.danger-zone { border-color: var(--danger-border); box-shadow: none; }
+
+@media (max-width: 900px) {
+    .policy-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .policy-facts > div + div { border-left: 0; }
+    .policy-facts > div { border-top: 1px solid var(--border); }
+    .policy-facts > div:nth-child(-n+2) { border-top: 0; }
+    .policy-facts > div:nth-child(2n) { border-left: 1px solid var(--border); }
+    .policy-facts > div:last-child:nth-child(odd) { grid-column: span 2; }
+    .shift-row, .shift-row.new { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .shift-row > .dot { display: none; }
+    .shift-row > .input[type="text"] { grid-column: span 2; border-left: 4px solid var(--tone-fg, var(--border)); }
+    .shift-row > .btn { justify-self: start; }
+    .policy-week { align-items: flex-start; }
+}

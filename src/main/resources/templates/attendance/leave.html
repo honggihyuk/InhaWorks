@@ -4,16 +4,15 @@
       layout:decorate="~{layouts/layout}">
 <head><title>휴가</title></head>
 <body>
-<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>휴가</b></nav>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><b>휴가</b></nav>
 
 <main layout:fragment="content" class="content">
     <div class="page-header">
         <div>
-            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <h1 class="page-title">휴가</h1>
             <p class="page-sub">신청하면 관리자에게 알림이 가고, 승인·반려되면 알려 드려요</p>
         </div>
     </div>
-    <div th:replace="~{attendance/tabs :: tabs('leave')}"></div>
 
     <div class="split">
         <section class="card" aria-labelledby="mine-title">

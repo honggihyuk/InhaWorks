@@ -44,12 +44,16 @@
             <div class="field"><label for="position">직급</label>
                 <input type="text" th:field="*{position}" class="input" placeholder="사원, 매니저 ..."></div>
         </div>
-        <div class="grid grid-2">
+        <div class="grid grid-3">
             <div class="field"><label for="role">권한</label>
                 <select th:field="*{role}" class="select">
                     <option th:each="r : ${roles}" th:value="${r}" th:text="${r.label}">직원</option>
                 </select>
                 <p th:if="${#fields.hasErrors('role')}" th:errors="*{role}" class="field-error"></p></div>
+            <div class="field"><label for="workPolicyId">근무제</label>
+                <select th:field="*{workPolicyId}" class="select">
+                    <option th:each="p : ${policies}" th:value="${p.id}" th:text="|${p.name} · ${p.type.shortLabel}|">사무실 고정 근무</option>
+                </select></div>
             <div class="field"><label for="phone">연락처 (선택)</label>
                 <input type="text" th:field="*{phone}" class="input" placeholder="010-0000-0000"></div>
         </div>

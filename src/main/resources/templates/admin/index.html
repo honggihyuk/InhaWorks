@@ -23,13 +23,16 @@
     <section class="card flush">
         <div class="table-box">
             <table class="t">
-                <thead><tr><th>이름</th><th>사용자ID</th><th>팀 · 근무지 · 직급</th><th>등록일</th><th style="min-width:220px">권한</th><th class="right"></th></tr></thead>
+                <thead><tr><th>이름</th><th>사용자ID</th><th>팀 · 근무지 · 직급</th><th>근무제</th><th>등록일</th><th style="min-width:220px">권한</th><th class="right"></th></tr></thead>
                 <tbody>
                 <tr th:each="m : ${memberList}" th:classappend="${m.active} ? '' : 'dim'">
                     <td><span class="person"><span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span><span th:text="${m.displayName}">홍기혁</span></span>
                         <span class="chip grey" th:unless="${m.active}">퇴사</span></td>
                     <td class="mono" th:text="${m.username}">emp1</td>
                     <td class="muted" th:text="${m.subtitle}">영업팀 · 인하점 · 사원</td>
+                    <td><a th:if="${m.workPolicy != null}" th:href="@{|/admin/schedule/policies/${m.workPolicy.id}|}" class="chip"
+                           th:classappend="${m.workPolicy.toneOrDefault.css}" th:title="${m.workPolicy.name}" th:text="${m.workPolicy.type.shortLabel}">스케줄 근무</a>
+                        <span th:if="${m.workPolicy == null}" class="faint">-</span></td>
                     <td class="tnum muted" th:text="${m.created != null ? #temporals.format(m.created, 'yyyy-MM-dd') : '-'}">2026-11-11</td>
                     <td>
                         <form th:action="@{|/admin/member/${m.id}|}" method="post" class="row" style="gap:6px;flex-wrap:nowrap">

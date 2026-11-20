@@ -41,9 +41,15 @@
             </div>
             <div class="nav-group">
                 <div class="nav-label">근태</div>
-                <a class="nav-item" th:href="@{/admin/attendance}"
-                   th:classappend="${#strings.startsWith(u, '/admin/attendance') or #strings.startsWith(u, '/admin/schedule') or #strings.startsWith(u, '/admin/leave')} ? 'active'">
-                    <th:block th:replace="~{fragments/ui :: icon('clock')}"/>출퇴근·스케줄·휴가
+                <a class="nav-item" th:href="@{/admin/attendance}" th:classappend="${#strings.startsWith(u, '/admin/attendance')} ? 'active'"
+                   th:attr="aria-current=${#strings.startsWith(u, '/admin/attendance')} ? 'page'">
+                    <th:block th:replace="~{fragments/ui :: icon('clock')}"/>출퇴근</a>
+                <a class="nav-item" th:href="@{/admin/schedule}" th:classappend="${#strings.startsWith(u, '/admin/schedule')} ? 'active'"
+                   th:attr="aria-current=${#strings.startsWith(u, '/admin/schedule')} ? 'page'">
+                    <th:block th:replace="~{fragments/ui :: icon('calendar')}"/>스케줄</a>
+                <a class="nav-item" th:href="@{/admin/leave}" th:classappend="${#strings.startsWith(u, '/admin/leave')} ? 'active'"
+                   th:attr="aria-current=${#strings.startsWith(u, '/admin/leave')} ? 'page'">
+                    <th:block th:replace="~{fragments/ui :: icon('leave')}"/>휴가
                     <span class="badge" th:if="${navLeavePending != null and navLeavePending > 0}" th:text="${navLeavePending}" title="휴가 승인 대기">1</span></a>
             </div>
             <div class="nav-group">
@@ -71,9 +77,12 @@
                     <span class="badge" th:if="${navInbox != null and navInbox > 0}" th:text="${navInbox}" title="결재 대기">1</span></a>
                 <a class="nav-item" th:href="@{/board}" th:classappend="${#strings.startsWith(u, '/board')} ? 'active'">
                     <th:block th:replace="~{fragments/ui :: icon('board')}"/>게시판</a>
-                <a class="nav-item" th:href="@{/attendance}"
-                   th:classappend="${#strings.startsWith(u, '/attendance') or #strings.startsWith(u, '/schedule') or #strings.startsWith(u, '/leave')} ? 'active'">
-                    <th:block th:replace="~{fragments/ui :: icon('clock')}"/>출퇴근·스케줄·휴가</a>
+                <a class="nav-item" th:href="@{/attendance}" th:classappend="${#strings.startsWith(u, '/attendance')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('clock')}"/>출퇴근</a>
+                <a class="nav-item" th:href="@{/schedule}" th:classappend="${#strings.startsWith(u, '/schedule')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('calendar')}"/>스케줄</a>
+                <a class="nav-item" th:href="@{/leave}" th:classappend="${#strings.startsWith(u, '/leave')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('leave')}"/>휴가</a>
                 <a class="nav-item" th:href="@{/notifications}" th:classappend="${#strings.startsWith(u, '/notifications')} ? 'active'">
                     <th:block th:replace="~{fragments/ui :: icon('bell')}"/>알림
                     <span class="badge" th:if="${unreadCount != null and unreadCount > 0}" th:text="${unreadCount > 99 ? '99+' : unreadCount}">3</span></a>

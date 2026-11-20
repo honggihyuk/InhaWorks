@@ -466,7 +466,44 @@
         $$('.table-box:not(.scroll-x)').forEach(function (box) { ro.observe(box); });
     }
 
+    // ---------- 9. 근무 배정 폼 : 직원의 근무제에 있는 근무 유형만 보이기 ----------
+    //  [data-shift-member] 의 option data-policy ↔ [data-shift-type] 의 option data-policy
+    //  유형을 고르면 시작·끝 시각을 채우고, 휴무(data-off)면 시각 칸을 잠근다 (서버는 휴무를 시각 없이 저장)
+    function initShiftForm(root) {
+        $$('[data-shift-form]', root).forEach(function (form) {
+            var member = $('[data-shift-member]', form), type = $('[data-shift-type]', form);
+            var st = form.querySelector('[name="startTime"]'), et = form.querySelector('[name="endTime"]');
+            if (!member || !type) return;
+            function policyOf() { var o = member.options[member.selectedIndex]; return o ? o.dataset.policy : ''; }
+            function syncTimes(fill) {
+                var o = type.options[type.selectedIndex];
+                var off = o && o.dataset.off === 'true';
+                [st, et].forEach(function (i) { if (i) { i.disabled = off; i.required = !off; } });
+                if (fill && o && o.value && !off) {
+                    if (st && o.dataset.start) st.value = o.dataset.start;
+                    if (et && o.dataset.end) et.value = o.dataset.end;
+                }
+            }
+            function filter() {
+                var p = policyOf();
+                $$('option', type).forEach(function (o) {
+                    if (!o.value) return;
+                    var ok = o.dataset.policy === p;
+                    o.hidden = !ok;
+                    o.disabled = !ok;
+                });
+                var cur = type.options[type.selectedIndex];
+                if (cur && cur.disabled) type.value = '';
+                syncTimes(false);
+            }
+            member.addEventListener('change', filter);
+            type.addEventListener('change', function () { syncTimes(true); });
+            filter();
+        });
+    }
+
     function init(root) {
+        initShiftForm(root);
         initTableCards(root);
         initSignature(root);
         initPhotoPreview(root);

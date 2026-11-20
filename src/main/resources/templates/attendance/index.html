@@ -4,16 +4,15 @@
       layout:decorate="~{layouts/layout}">
 <head><title>출퇴근</title></head>
 <body>
-<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>출퇴근</b></nav>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>우리 회사</span><span class="sep">›</span><b>출퇴근</b></nav>
 
 <main layout:fragment="content" class="content">
     <div class="page-header">
         <div>
-            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
+            <h1 class="page-title">출퇴근</h1>
             <p class="page-sub" th:text="${#temporals.format(now, 'yyyy년 M월 d일 EEEE')}">2026년 11월 19일 목요일</p>
         </div>
     </div>
-    <div th:replace="~{attendance/tabs :: tabs('attendance')}"></div>
 
     <section class="card clock-card" aria-label="출퇴근">
         <div>

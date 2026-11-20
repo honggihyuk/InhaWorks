@@ -214,10 +214,19 @@
 - 날짜 폼 `GET /admin/attendance?date=` + **보기**; "출근 N명 / 재직 M명".
 - 표 열 : 직원 · 팀·근무지 · 출근 · 퇴근 · 근무 시간(`workedText`). 빈 상태.
 
-#### A14 스케줄 배정 `/admin/schedule`
-- 배정 폼 `POST /admin/schedule` : `memberId`(select), `date`(기본 monday), `startTime`(09:00), `endTime`(18:00), `memo`(≤100). 끝>시작 검증. → `/admin/schedule?week={그 주 월요일}` + 직원 알림.
-- 주 이동 : ‹ 지난주 `?week=monday-7`, 이번 주 `/admin/schedule`, 다음 주 › `?week=monday+7`.
-- 표 : 행 = 재직 직원, 열 = 월~일 (`M.d (E)`), 셀 = 근무 칩(`HH:mm-HH:mm 메모`) + × 삭제 `POST /admin/schedule/{id}/delete` hidden `week` (`data-confirm`).
+#### A14 스케줄 `/admin/schedule` (리스트) · `/admin/schedule/month` (캘린더)
+- 사이드바 메뉴 "스케줄" 하나 (출퇴근·휴가와 분리). 위쪽 **근무제 탭** `?policy={id}` : 전체 + 정책마다 소속 직원 얼굴·인원. 탭을 고르면 그 근무제 직원만 보이고 **근무제 카드**(1주 소정근로시간, 근무 요일, 하루 소정근로, 근무시간, 휴게, 근무지, 근무 유형 칩) + "+ 근무 유형" · "정책 수정" 링크.
+- 보기 전환 : 리스트(주) / 캘린더(월). 캘린더는 근무 유형 필터 `?shift={id}`, 직원 필터 `?who={id}`.
+- 배정 폼 `POST /admin/schedule` : `memberId`, `date`, `shiftTypeId`(선택, 직원 근무제의 유형만 보임), `startTime`·`endTime`(유형을 고르면 채워짐, 휴무면 비움), `memo`(≤100). 저장 뒤 같은 직원·유형·시각 유지, 날짜는 다음 날. 그 주 근로시간이 **52시간을 넘으면 errorMessage 토스트**(저장은 됨). 직원 알림.
+- 리스트 표 : 행 = 재직 직원(근무제 칩), 열 = 월~일, 셀 = `.shift-pill`(유형 이름 + 시각) + × 삭제 `POST /admin/schedule/{id}/delete` (`data-confirm`), 마지막 열 "주 근로"(법정 휴게 뺀 시간, 소정 초과 파랑 · 52시간 초과 빨강).
+- 캘린더 : 날마다 근무 유형별 색 블록(이름 · 시각 · 인원) + 사람 이름 × 지우기.
+
+#### A14-1 근무제 관리 `/admin/schedule/policies`
+- 정책 카드 목록(종류 칩 · 이름 · 주 시간 · 요일 · 근무시간 · 인원 · 근무 유형 수) + 새 정책 폼 `POST /admin/schedule/policies` (이름, 근무제 종류, 근무 요일, 1주 소정근로 1~52, 기본 출근·퇴근(재량·간주는 비움), 휴게 분, 근무지, 색).
+- 상세 `/admin/schedule/policies/{id}` : 정책 수정 `POST /{id}` · 근무 유형 추가 `POST /{id}/shifts` · 수정 `POST /{id}/shifts/{sid}` · 지우기 `POST /{id}/shifts/{sid}/delete`(확인, 배정된 근무는 메모로 이름을 남기고 연결만 해제) · 직원 옮기기 `POST /{id}/members` `memberIds`(확인) · 정책 지우기 `POST /{id}/delete`(확인, 소속 직원이 있으면 막음).
+- 근무제 종류 : 고정 근무제 · 시차 출퇴근제 · 선택적 근무제 · 탄력적 근무제 · 스케줄 근무제 · 재량 근무제 · 간주 근무제.
+- 처음 실행 : 정책이 없으면 "사무실 고정 근무"(월~금 09–18, 사무실 근무·오전 근무·휴무) + "매장 스케줄 근무"(오픈 06–12 · 미들 11–16 · 마감 17–22 · 휴무)를 만들고, 근무제가 없는 직원을 배정(예시 데이터를 새로 만든 경우 직원은 매장, 관리자는 사무실). 메모가 유형 이름과 같은 기존 스케줄은 그 유형으로 연결.
+- 직원 관리 : 목록에 "근무제" 열(칩 → 정책 상세), 직원 등록·수정 폼에 근무제 선택.
 
 #### A15 휴가 승인 `/admin/leave`
 - 대기 목록 행 : 아바타 · `이름 · 종류 · 기간 (N일)` · 사유 + 폼 `POST /admin/leave/{id}` `comment`(의견) + 버튼 `decision=approve`(승인) / `decision=reject`(반려). `data-once`, 확인창 없음.
@@ -309,7 +318,8 @@
 - 최근 한 달 표 열 : 날짜 · 출근 · 퇴근 · 근무 시간.
 
 #### E18 스케줄 `/schedule`
-- 주 이동 ‹ 지난주 / 이번 주 / 다음 주 › (`?week=`). 요일 카드 7개(오늘 강조) : 근무 칩 `HH:mm ~ HH:mm · 메모`, 없으면 "휴무". 읽기 전용.
+- 사이드바 메뉴 "스케줄" (출퇴근·휴가와 분리). 위에 **내 근무제 카드**(종류 · 이름 · 설명 · 이번 주 근무 시간 · 1주 소정근로 · 근무 요일 · 근무시간 · 휴게 · 근무지 · 근무 유형 칩).
+- 주 이동 ‹ 지난주 / 이번 주 / 다음 주 › (`?week=`). 요일 카드 7개(오늘 강조) : 근무 유형 색 칩(이름 + 시각), 없으면 "휴무". 읽기 전용. 월별 `/schedule/month` 도 같은 카드 + 유형 색 칩.
 
 #### E19 휴가 `/leave`
 - flash leaveMessage. 신청 폼 `POST /leave` (`data-once`) : `type`(ANNUAL/HALF_AM/HALF_PM/SICK/OTHER), `startDate`, `endDate`(기본 오늘, 끝≥시작), `reason`(선택 ≤500).
@@ -403,7 +413,10 @@
 |---|---|---|
 | 출근 | `POST /attendance/in` | 하루 1행 (member, workDate unique); 중복 시 "이미 출근" |
 | 퇴근 | `POST /attendance/out` | 출근 필요, 다시 누르면 퇴근 시각 갱신 |
-| 스케줄 배정 | `POST /admin/schedule` | end > start; 직원 "근무 스케줄 배정" (ATTENDANCE, 링크 `/schedule?week=`) |
+| 스케줄 배정 | `POST /admin/schedule` | 근무 유형(선택) · 휴무는 시간 없음 · 그 외 end > start; 주 52시간 초과 시 경고; 직원 "근무 스케줄 배정" (ATTENDANCE, 링크 `/schedule?week=`) |
+| 근무 정책 | `POST /admin/schedule/policies[/{id}]` | 이름 필수, 1주 소정 1~52, 휴게 0~240분, 퇴근 > 출근 |
+| 근무 유형 | `POST /admin/schedule/policies/{id}/shifts[/{sid}]` | 휴무가 아니면 시작·끝 필수, 끝 > 시작 |
+| 정책 지우기 | `POST /admin/schedule/policies/{id}/delete` | 소속 직원이 있으면 막음 |
 | 스케줄 삭제 | `POST /admin/schedule/{id}/delete` | 알림 없음 |
 | 휴가 신청 | `POST /leave` | 끝≥시작, REQUESTED; 모든 ADMIN 에게 "휴가 신청" (ATTENDANCE, 링크 `/admin/leave`) |
 | 휴가 취소 | `POST /leave/{id}/cancel` | 본인 & REQUESTED 만 → CANCELED |
@@ -511,6 +524,11 @@ PROCESSING 5분(stuck-timeout) 초과 → 폴링 시 PENDING 으로 되살림
 | 스케줄 배정 화면 | 관리자 | `GET /admin/schedule?week=` |
 | 스케줄 배정 | 관리자 | `POST /admin/schedule` |
 | 스케줄 삭제 | 관리자 | `POST /admin/schedule/{id}/delete` |
+| 스케줄 캘린더 | 관리자 | `GET /admin/schedule/month?month=&policy=&shift=&who=` |
+| 근무제 관리 | 관리자 | `GET/POST /admin/schedule/policies`, `GET/POST /admin/schedule/policies/{id}` |
+| 근무 유형 추가·수정·삭제 | 관리자 | `POST /admin/schedule/policies/{id}/shifts[/{sid}[/delete]]` |
+| 근무제로 직원 옮기기 | 관리자 | `POST /admin/schedule/policies/{id}/members` |
+| 근무 정책 삭제 | 관리자 | `POST /admin/schedule/policies/{id}/delete` |
 | 휴가 승인 화면 | 관리자 | `GET /admin/leave` |
 | 휴가 승인/반려 | 관리자 | `POST /admin/leave/{id}` |
 | 직원 로그인 화면 | 직원(공개) | `GET /member/login` |

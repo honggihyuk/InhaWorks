@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 직원 스케줄 화면 위 : 내 근무제 (근무 정책) 요약 -->
+<section th:fragment="card(p, weekMinutes)" class="card policy-card" aria-label="내 근무제">
+    <div th:if="${p == null}" class="muted">아직 근무제가 정해지지 않았어요. 관리자에게 문의해 주세요.</div>
+    <th:block th:if="${p != null}">
+        <div class="policy-card-head">
+            <div>
+                <span class="chip" th:classappend="${p.toneOrDefault.css}" th:text="${p.type.label}">스케줄 근무제</span>
+                <h2 th:text="${p.name}">매장 스케줄 근무</h2>
+                <p class="muted small" th:text="${p.type.description}">설명</p>
+            </div>
+            <div class="policy-week" th:if="${weekMinutes != null}">
+                <span class="label">이번 주 근무</span>
+                <b class="tnum" th:text="${weekMinutes == 0 ? '0시간' : T(com.mysite.sbb.attendance.entity.WorkPolicy).minutesText(weekMinutes)}">32시간</b>
+                <span class="faint small" th:text="|소정 ${p.weeklyHours}시간|">소정 40시간</span>
+            </div>
+        </div>
+        <dl class="policy-facts">
+            <div><dt>1주 소정근로</dt><dd class="tnum" th:text="|${p.weeklyHours}시간|">40시간</dd></div>
+            <div><dt>근무 요일</dt><dd th:text="${p.workDaysText}">월 화 수 목 금</dd></div>
+            <div><dt>근무시간</dt><dd class="tnum" th:text="${p.timeText}">09:00 ~ 18:00</dd></div>
+            <div><dt>휴게</dt><dd th:text="${p.breakText}">1시간</dd></div>
+            <div><dt>근무지</dt><dd th:text="${p.workplace != null ? p.workplace.name : '-'}">인하점</dd></div>
+        </dl>
+        <div class="chips" th:unless="${#lists.isEmpty(p.shiftTypes)}">
+            <span class="chip" th:each="t : ${p.shiftTypes}" th:classappend="${t.toneOrDefault.css}"
+                  th:text="${t.off} ? ${t.name} : |${t.name} ${t.timeText}|">오픈 06:00–12:00</span>
+        </div>
+    </th:block>
+</section>
+</html>

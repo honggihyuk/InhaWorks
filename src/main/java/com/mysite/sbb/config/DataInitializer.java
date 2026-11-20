@@ -1,5 +1,6 @@
 package com.mysite.sbb.config;
 
+import com.mysite.sbb.attendance.service.WorkPolicyService;
 import com.mysite.sbb.board.constant.BoardType;
 import com.mysite.sbb.board.entity.Board;
 import com.mysite.sbb.board.entity.Post;
@@ -38,6 +39,7 @@ import java.util.UUID;
 //  1) 관리자 계정 (app.admin.*) : 없으면 항상 만든다
 //  2) 예시 데이터 (app.seed.enabled=true 이고 팀이 하나도 없을 때만)
 //     팀 2, 근무지 2, 직원 3, 할 일 1(매일), 보고서 양식 1(2단계 결재), 게시판 2
+//  3) 근무 정책 : 없으면 기본 정책 2개 (예시 데이터를 만들면 직원은 매장 스케줄 근무, 관리자는 사무실 고정 근무)
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -51,6 +53,7 @@ public class DataInitializer implements CommandLineRunner {
     private final BoardRepository boardRepository;
     private final PostRepository postRepository;
     private final PasswordEncoder passwordEncoder;
+    private final WorkPolicyService workPolicyService;
 
     @Value("${app.admin.username:admin}")
     private String adminUsername;
@@ -77,9 +80,13 @@ public class DataInitializer implements CommandLineRunner {
                     .email(adminEmail).position("대표").role(MemberRole.ADMIN).created(LocalDateTime.now()).build());
         });
 
-        if (!seedEnabled || teamRepository.count() > 0) {
-            return;
-        }
+        boolean demo = seedEnabled && teamRepository.count() == 0;
+        if (demo) seed(admin);
+        // 근무 정책 : 없으면 기본 정책(고정 근무제 · 스케줄 근무제)을 만들고 정책이 없는 직원에게 배정 (기존 데이터 호환)
+        workPolicyService.ensureDefaults(demo);
+    }
+
+    private void seed(Member admin) {
         log.info("=======> 예시 데이터 만들기 (팀·근무지·직원·할 일·보고서 양식·게시판)");
 
         Team ops = teamRepository.save(Team.builder().name("운영팀").description("매장 운영·관리").build());

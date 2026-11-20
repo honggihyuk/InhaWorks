@@ -2,29 +2,32 @@
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layouts/layout}">
-<head><title>스케줄 배정</title></head>
+<head><title>스케줄</title></head>
 <body>
-<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>근태</span><span class="sep">›</span><b>스케줄 배정</b></nav>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><b>스케줄</b></nav>
 
 <main layout:fragment="content" class="content" th:with="today=${#temporals.createToday()}">
     <div class="page-header">
         <div>
-            <h1 class="page-title">출퇴근 · 스케줄 · 휴가</h1>
-            <p class="page-sub" th:text="|${#temporals.format(monday, 'M월 d일')} ~ ${#temporals.format(monday.plusDays(6), 'M월 d일')} 주|">11월 16일 주</p>
+            <h1 class="page-title">스케줄</h1>
+            <p class="page-sub" th:text="|${#temporals.format(monday, 'M월 d일')} ~ ${#temporals.format(monday.plusDays(6), 'M월 d일')} 주 · 근무제에 맞춰 근무를 배정해요|">11월 16일 주</p>
         </div>
         <div class="actions">
-            <a th:href="@{/admin/schedule(week=${monday.minusDays(7)}, memberId=${form.memberId})}" class="btn">‹ 지난주</a>
-            <a th:href="@{/admin/schedule(memberId=${form.memberId})}" class="btn">이번 주</a>
-            <a th:href="@{/admin/schedule(week=${monday.plusDays(7)}, memberId=${form.memberId})}" class="btn">다음 주 ›</a>
+            <a th:href="@{/admin/schedule(week=${monday.minusDays(7)}, policy=${policy?.id}, memberId=${form.memberId})}" class="btn">‹ 지난주</a>
+            <a th:href="@{/admin/schedule(policy=${policy?.id}, memberId=${form.memberId})}" class="btn">이번 주</a>
+            <a th:href="@{/admin/schedule(week=${monday.plusDays(7)}, policy=${policy?.id}, memberId=${form.memberId})}" class="btn">다음 주 ›</a>
         </div>
     </div>
 
+    <nav th:replace="~{admin/schedule-bar :: tabs('week', ${monday})}"></nav>
+    <section th:replace="~{admin/schedule-bar :: card('week', ${monday})}"></section>
+
     <div class="row" style="justify-content:space-between">
-        <div th:replace="~{admin/attendance-tabs :: tabs('schedule')}"></div>
         <nav class="segmented" aria-label="보기">
-            <a th:href="@{/admin/schedule(week=${monday}, memberId=${form.memberId})}" class="active" aria-current="page">주별</a>
-            <a th:href="@{/admin/schedule/month(month=${#temporals.format(monday, 'yyyy-MM')}, memberId=${form.memberId})}">월별</a>
+            <a th:href="@{/admin/schedule(week=${monday}, policy=${policy?.id}, memberId=${form.memberId})}" class="active" aria-current="page">리스트</a>
+            <a th:href="@{/admin/schedule/month(month=${#temporals.format(monday, 'yyyy-MM')}, policy=${policy?.id}, memberId=${form.memberId})}">캘린더</a>
         </nav>
+        <a th:href="@{/admin/schedule/policies}" class="link-muted">근무제 관리 ›</a>
     </div>
 
     <section th:replace="~{admin/schedule-form :: form('week', null)}"></section>
@@ -33,26 +36,36 @@
         <div class="table-box scroll-x">
             <table class="t week">
                 <thead><tr><th>직원</th>
-                    <th th:each="d : ${days}" th:classappend="${d == today} ? 'today'" th:text="${#temporals.format(d, 'M.d (E)')}">11.17 (월)</th></tr></thead>
+                    <th th:each="d : ${days}" th:classappend="${d == today} ? 'today'" th:text="${#temporals.format(d, 'M.d (E)')}">11.17 (월)</th>
+                    <th class="right">주 근로</th></tr></thead>
                 <tbody>
-                <tr th:if="${#lists.isEmpty(rows)}"><td colspan="8" class="empty-sm">재직 중인 직원이 없어요.</td></tr>
-                <tr th:each="row : ${rows}">
-                    <td class="nowrap"><b th:text="${row.member().displayName}">이서연</b></td>
+                <tr th:if="${#lists.isEmpty(rows)}"><td colspan="9" class="empty-sm" th:text="${policy == null} ? '재직 중인 직원이 없어요.' : '이 근무제에 속한 직원이 없어요. 근무제 관리에서 직원을 옮겨 주세요.'">재직 중인 직원이 없어요.</td></tr>
+                <tr th:each="row : ${rows}" th:with="m=${row.member()}">
+                    <td class="nowrap"><b th:text="${m.displayName}">이서연</b>
+                        <span class="sub"><span class="chip" th:if="${m.workPolicy != null}" th:classappend="${m.workPolicy.toneOrDefault.css}"
+                                                th:text="${m.workPolicy.type.shortLabel}">스케줄 근무</span></span></td>
                     <td th:each="cell, cs : ${row.days()}" th:classappend="${days[cs.index] == today} ? 'today'">
-                        <span class="shift" th:each="s : ${cell}">
-                            <span th:text="|${#temporals.format(s.startTime, 'HH:mm')}–${#temporals.format(s.endTime, 'HH:mm')}${s.memo != null ? ' ' + s.memo : ''}|">09:00–18:00</span>
+                        <span class="shift-pill" th:each="s : ${cell}" th:classappend="${s.toneCss}">
+                            <b th:text="${s.label}">오픈</b><span class="tnum" th:text="${s.timeText}">06:00–12:00</span>
                             <form th:action="@{|/admin/schedule/${s.id}/delete|}" method="post" class="inline">
                                 <input type="hidden" name="week" th:value="${monday}">
-                                <button type="submit" th:aria-label="|${row.member().displayName} 근무 지우기|"
+                                <input type="hidden" name="policy" th:value="${policy?.id}">
+                                <button type="submit" th:aria-label="|${m.displayName} ${s.label} 근무 지우기|"
                                         data-confirm="이 근무를 지울까요?" data-confirm-ok="지우기" data-danger>×</button>
                             </form>
                         </span>
+                    </td>
+                    <td class="right nowrap">
+                        <span th:if="${row.over52()}" class="chip red" th:title="'주 52시간 초과'" th:text="${row.hoursText()}">54시간</span>
+                        <span th:if="${!row.over52() and row.overtime()}" class="chip blue" title="소정근로시간 초과 (연장 근로)" th:text="${row.hoursText()}">44시간</span>
+                        <span th:if="${!row.over52() and !row.overtime()}" class="tnum muted" th:text="${row.hoursText()}">40시간</span>
                     </td>
                 </tr>
                 </tbody>
             </table>
         </div>
     </section>
+    <p class="faint small">주 근로는 근무 시간에서 법정 휴게(4시간 이상 30분, 8시간 이상 1시간)를 뺀 시간이에요. 파랑은 소정근로시간 초과(연장), 빨강은 주 52시간 초과예요.</p>
 </main>
 </body>
 </html>

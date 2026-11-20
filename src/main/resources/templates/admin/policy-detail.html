@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title th:text="${policy.name}">근무 정책</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/schedule}">스케줄</a><span class="sep">›</span><a th:href="@{/admin/schedule/policies}">근무제 관리</a><span class="sep">›</span><b th:text="${policy.name}">정책</b></nav>
+
+<main layout:fragment="content" class="content narrow"
+      th:with="mine=${members.?[workPolicy != null and workPolicy.id == __${policy.id}__]}">
+    <div class="page-header">
+        <div>
+            <span class="chip" th:classappend="${policy.toneOrDefault.css}" th:text="${policy.type.label}">스케줄 근무제</span>
+            <h1 class="page-title" style="margin-top:8px" th:text="${policy.name}">매장 스케줄 근무</h1>
+            <p class="page-sub" th:text="${policy.type.description}">설명</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{/admin/schedule(policy=${policy.id})}" class="btn">리스트</a>
+            <a th:href="@{/admin/schedule/month(policy=${policy.id})}" class="btn">캘린더</a>
+        </div>
+    </div>
+
+    <!-- 정책 -->
+    <section class="card">
+        <div class="card-head"><h2>정책</h2><span class="meta" th:text="|하루 소정근로 ${policy.dailyText} · 휴게 ${policy.breakText}|">하루 8시간</span></div>
+        <form th:action="@{|/admin/schedule/policies/${policy.id}|}" method="post" th:object="${policyForm}" class="stack">
+            <th:block th:replace="~{admin/policy-form :: fields}"/>
+            <div class="row" style="justify-content:space-between">
+                <span></span>
+                <button type="submit" class="btn primary">저장</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- 근무 유형 -->
+    <section class="card" id="shifts">
+        <div class="card-head"><h2>근무 유형</h2><span class="meta">스케줄을 배정할 때 이 근무제 직원에게만 제안돼요</span></div>
+        <div class="list">
+            <div th:if="${#lists.isEmpty(policy.shiftTypes)}" class="empty-sm">아직 근무 유형이 없어요. 아래에서 추가해 주세요.</div>
+            <form th:each="t : ${policy.shiftTypes}" th:action="@{|/admin/schedule/policies/${policy.id}/shifts/${t.id}|}" method="post"
+                  class="shift-row" th:classappend="${t.toneOrDefault.css}" th:id="|shift-${t.id}|">
+                <span class="dot" aria-hidden="true"></span>
+                <label class="sr-only" th:for="|sn${t.id}|">이름</label>
+                <input th:id="|sn${t.id}|" type="text" name="name" class="input" maxlength="30" th:value="${t.name}" required>
+                <label class="sr-only" th:for="|ss${t.id}|">시작</label>
+                <input th:id="|ss${t.id}|" type="time" name="startTime" class="input" th:value="${t.startTime}">
+                <label class="sr-only" th:for="|se${t.id}|">끝</label>
+                <input th:id="|se${t.id}|" type="time" name="endTime" class="input" th:value="${t.endTime}">
+                <label class="sr-only" th:for="|sc${t.id}|">색</label>
+                <select th:id="|sc${t.id}|" name="tone" class="select">
+                    <option th:each="c : ${tones}" th:value="${c}" th:selected="${t.toneOrDefault == c}" th:text="${c.label}">파랑</option>
+                </select>
+                <label class="round-check small"><input type="checkbox" name="off" value="true" th:checked="${t.off}">휴무</label>
+                <button type="submit" class="btn sm soft">저장</button>
+                <button type="submit" class="btn sm danger" th:formaction="@{|/admin/schedule/policies/${policy.id}/shifts/${t.id}/delete|}"
+                        th:attr="data-confirm=|근무 유형 ‘${t.name}’을 지울까요?|"
+                        data-confirm-body="이미 배정한 근무는 시간과 이름이 그대로 남고, 근무 유형 연결만 풀려요." data-confirm-ok="지우기" data-danger>지우기</button>
+            </form>
+        </div>
+        <form th:action="@{|/admin/schedule/policies/${policy.id}/shifts|}" method="post" class="shift-row new">
+            <span class="dot tone-grey" aria-hidden="true"></span>
+            <label class="sr-only" for="nsn">새 근무 유형 이름</label>
+            <input id="nsn" type="text" name="name" class="input" maxlength="30" placeholder="오픈, 마감, 사무실 근무 …" required>
+            <label class="sr-only" for="nss">시작</label>
+            <input id="nss" type="time" name="startTime" class="input" th:value="${policy.startTime}">
+            <label class="sr-only" for="nse">끝</label>
+            <input id="nse" type="time" name="endTime" class="input" th:value="${policy.endTime}">
+            <label class="sr-only" for="nsc">색</label>
+            <select id="nsc" name="tone" class="select">
+                <option th:each="c : ${tones}" th:value="${c}" th:text="${c.label}">파랑</option>
+            </select>
+            <label class="round-check small"><input type="checkbox" name="off" value="true">휴무</label>
+            <button type="submit" class="btn sm primary">+ 추가</button>
+        </form>
+    </section>
+
+    <!-- 소속 직원 -->
+    <section class="card" id="members">
+        <div class="card-head"><h2>소속 직원 <span class="faint tnum" th:text="${#lists.size(mine)}">3</span></h2>
+            <span class="meta">다른 근무제 직원을 골라 이 근무제로 옮겨요</span></div>
+        <form th:action="@{|/admin/schedule/policies/${policy.id}/members|}" method="post" class="stack">
+            <div class="check-grid">
+                <label th:each="m : ${members}" class="member-check">
+                    <input type="checkbox" name="memberIds" th:value="${m.id}"
+                           th:checked="${m.workPolicy != null and m.workPolicy.id == policy.id}"
+                           th:disabled="${m.workPolicy != null and m.workPolicy.id == policy.id}">
+                    <span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span>
+                    <span class="mc-body"><b th:text="${m.displayName}">이서연</b>
+                        <small th:text="${m.workPolicy != null ? m.workPolicy.name : '근무제 없음'}">사무실 고정 근무</small></span>
+                </label>
+            </div>
+            <div class="row" style="justify-content:flex-end">
+                <button type="submit" class="btn soft" data-confirm="고른 직원을 이 근무제로 옮길까요?"
+                        data-confirm-body="앞으로 배정할 때 이 근무제의 근무 유형이 제안돼요. 이미 배정한 근무는 그대로예요." data-confirm-ok="옮기기">이 근무제로 옮기기</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- 지우기 -->
+    <section class="card danger-zone">
+        <div class="card-head"><h2>정책 지우기</h2></div>
+        <p class="muted small">소속 직원이 없어야 지울 수 있어요. 이 정책의 근무 유형으로 배정한 근무는 시간과 이름이 그대로 남아요.</p>
+        <form th:action="@{|/admin/schedule/policies/${policy.id}/delete|}" method="post" style="margin-top:12px">
+            <button type="submit" class="btn danger" th:attr="data-confirm=|‘${policy.name}’ 근무 정책을 지울까요?|"
+                    data-confirm-body="되돌릴 수 없어요." data-confirm-ok="지우기" data-danger>정책 지우기…</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- 관리자 스케줄 위쪽 공통 (리스트 / 캘린더)
+     tabs(view, period) : 근무제 탭 (전체 + 정책마다 색 점 · 이름 · 소속 직원 얼굴 · 인원)
+     card(view, period) : 고른 근무제의 요약 카드 (1주 소정근로시간, 근무 요일, 근무시간, 휴게, 근무지, 근무 유형)
+     view = 'week' | 'month', period = 주의 월요일 | 'yyyy-MM' -->
+
+<nav th:fragment="tabs(view, period)" class="policy-tabs" aria-label="근무제">
+    <a th:href="${view == 'month'} ? @{/admin/schedule/month(month=${period})} : @{/admin/schedule(week=${period})}"
+       class="policy-tab" th:classappend="${policy == null} ? 'active'" th:attr="aria-current=${policy == null} ? 'page'">
+        <span class="name">전체</span><span class="count tnum" th:text="${activeCount}">5</span></a>
+    <a th:each="tab : ${tabs}" th:with="p=${tab.policy()}"
+       th:href="${view == 'month'} ? @{/admin/schedule/month(month=${period}, policy=${p.id})} : @{/admin/schedule(week=${period}, policy=${p.id})}"
+       class="policy-tab" th:classappend="${policy != null and policy.id == p.id} ? 'active'"
+       th:attr="aria-current=${policy != null and policy.id == p.id} ? 'page'">
+        <span class="dot" th:classappend="${p.toneOrDefault.css}" aria-hidden="true"></span>
+        <span class="name" th:text="${p.name}">매장 스케줄 근무</span>
+        <span class="faces" aria-hidden="true" th:unless="${tab.count() == 0}">
+            <th:block th:each="m : ${tab.faces()}"><span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span></th:block>
+        </span>
+        <span class="count tnum" th:text="${tab.count()}" th:aria-label="|소속 ${tab.count()}명|">3</span>
+    </a>
+    <a th:href="@{/admin/schedule/policies}" class="policy-tab add">+ 근무제</a>
+</nav>
+
+<section th:fragment="card(view, period)" class="card policy-card" th:if="${policy != null}" aria-label="근무제 정보">
+    <div class="policy-card-head">
+        <div>
+            <span class="chip" th:classappend="${policy.toneOrDefault.css}" th:text="${policy.type.label}">스케줄 근무제</span>
+            <h2><span th:text="|1주 소정근로시간 : ${policy.weeklyHours}시간|">1주 소정근로시간 : 40시간</span></h2>
+            <p class="muted small" th:text="${policy.type.description}">설명</p>
+        </div>
+        <div class="actions">
+            <a th:href="@{|/admin/schedule/policies/${policy.id}#shifts|}" class="btn sm soft">+ 근무 유형</a>
+            <a th:href="@{|/admin/schedule/policies/${policy.id}|}" class="btn sm">정책 수정</a>
+        </div>
+    </div>
+    <dl class="policy-facts">
+        <div><dt>근무 요일</dt><dd th:text="${policy.workDaysText}">월 화 수 목 금</dd></div>
+        <div><dt>하루 소정근로</dt><dd class="tnum" th:text="${policy.dailyText}">8시간</dd></div>
+        <div><dt>근무시간</dt><dd class="tnum" th:text="${policy.timeText}">09:00 ~ 18:00</dd></div>
+        <div><dt>휴게</dt><dd th:text="${policy.breakText}">1시간</dd></div>
+        <div><dt>근무지</dt><dd th:text="${policy.workplace != null ? policy.workplace.name : '-'}">본사</dd></div>
+    </dl>
+    <!-- 근무 유형 : 캘린더에서는 누르면 그 유형만 보기 -->
+    <div class="chips" th:unless="${#lists.isEmpty(policy.shiftTypes)}" role="group" aria-label="근무 유형">
+        <th:block th:if="${view == 'month'}">
+            <a class="chip outline" th:href="@{/admin/schedule/month(month=${period}, policy=${policy.id}, who=${who})}"
+               th:classappend="${shift == null} ? 'selected'" th:attr="aria-current=${shift == null} ? 'true'">전체 유형</a>
+            <a class="chip" th:each="t : ${policy.shiftTypes}" th:classappend="|${t.toneOrDefault.css} ${shift == t.id ? 'selected' : ''}|"
+               th:href="@{/admin/schedule/month(month=${period}, policy=${policy.id}, shift=${t.id}, who=${who})}"
+               th:attr="aria-current=${shift == t.id} ? 'true'"
+               th:text="${t.off} ? ${t.name} : |${t.name} ${t.timeText}|">오픈 06:00–12:00</a>
+        </th:block>
+        <th:block th:unless="${view == 'month'}">
+            <span class="chip" th:each="t : ${policy.shiftTypes}" th:classappend="${t.toneOrDefault.css}"
+                  th:text="${t.off} ? ${t.name} : |${t.name} ${t.timeText}|">오픈 06:00–12:00</span>
+        </th:block>
+    </div>
+</section>
+</html>

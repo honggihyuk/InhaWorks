@@ -61,7 +61,7 @@ flowchart LR
 | `todo` | 반복 할 일, 직원별 하루 할 일, 제출·검수·댓글 |
 | `report` | 보고서 양식(폼 빌더), 제출, 결재, 엑셀·zip |
 | `board` | 게시판, 글, 이슈 상태, 댓글 |
-| `attendance` | 출퇴근, 스케줄, 휴가 |
+| `attendance` | 출퇴근, 스케줄, 휴가, 근무 정책(근무제)·근무 유형 (`WorkPolicyService`) |
 | `notification` | 앱 안 알림 |
 | `outbox` | Transactional Outbox (저장 · 릴레이 · 처리기) |
 | `batch` | 배치 실행 기록, 생성·마감·복구 배치 |
@@ -97,6 +97,9 @@ erDiagram
 
     MEMBER ||--o{ ATTENDANCE : "출퇴근(하루 1줄)"
     MEMBER ||--o{ WORK_SCHEDULE : "근무"
+    WORK_POLICY ||--o{ MEMBER : "근무제 (직원마다 하나)"
+    WORK_POLICY ||--o{ SHIFT_TYPE : "근무 유형 (오픈·마감·휴무 …)"
+    SHIFT_TYPE |o--o{ WORK_SCHEDULE : "근무 유형 (선택)"
     MEMBER ||--o{ LEAVE_REQUEST : "휴가"
     MEMBER ||--o{ NOTIFICATION : "받는 알림"
 

@@ -1,5 +1,6 @@
 package com.mysite.sbb.member.entity;
 
+import com.mysite.sbb.attendance.entity.WorkPolicy;
 
 import com.mysite.sbb.member.constant.MemberRole;
 import com.mysite.sbb.organization.entity.Team;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@ToString(exclude = {"password", "team", "workplace"})
+@ToString(exclude = {"password", "team", "workplace", "workPolicy"})
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -36,6 +37,9 @@ public class Member {
 
     @ManyToOne(fetch = FetchType.LAZY)
     private Workplace workplace;            // 근무지 / 매장
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    private WorkPolicy workPolicy;          // 근무 정책 (근무제). 처음 실행할 때 기본 정책이 배정된다
 
     @Column(name = "job_position", length = 30)
     private String position;                // 직급 (예: 사원, 매니저)
