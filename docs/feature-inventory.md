@@ -624,3 +624,57 @@ PROCESSING 5분(stuck-timeout) 초과 → 폴링 시 PENDING 으로 되살림
 | 승인 실행 취소 | 결재자 | `POST /report/{id}/decide/undo` | 승인 후 10분 안, 다음 결재자가 처리하기 전까지. 내 단계가 다시 '대기', 작성자·다음 결재자에게 취소 알림 |
 
 DB 변경 (ddl-auto update 로 자동 추가, 기본값 false) : `todo_task.deleted`, `todo_item.archived`, `report_field.archived`, 새 테이블 `todo_task_comment`.
+
+---
+
+## 이슈 고도화 · 사내 채팅 (2026-11-23 추가)
+
+> 이 절이 위의 이슈 설명(`OPEN`, 처리 대기)보다 우선해요.
+
+### 이슈 상태
+
+| enum | 라벨 | 다음 단계 (칩 메뉴) |
+|---|---|---|
+| `REPORTED` | 보고 완료 | 검토 중 |
+| `REVIEWING` | 검토 중 | 처리 대기 중, 처리 중, 해결 완료 |
+| `WAITING` | 처리 대기 중 | 처리 중 |
+| `IN_PROGRESS` | 처리 중 | 해결 완료 |
+| `RESOLVED` | 해결 완료 | 검토 중 (재오픈) |
+
+| 엔드포인트 | 권한 | 내용 |
+|---|---|---|
+| `POST /board/post/{id}/issue/status` | 관리자 | `status`, `memo`, `resolution`(해결 완료 때 필수) |
+| `POST /board/post/{id}/issue/start` | 볼 수 있는 직원 | 해결 전 → 처리 중 |
+| `POST /board/post/{id}/issue/resolve` | 볼 수 있는 직원 | 해결 내용 + 첨부 |
+| `POST /board/post/{id}/issue/reopen` | 해결자·글쓴이·매니저·관리자 | 해결 내용·첨부를 비우고 검토 중으로 |
+| `POST /board/post/{id}/issue` | 볼 수 있는 직원 | 예전 폼 호환 (`OPEN` 은 보고 완료로) |
+| `GET /board/post/{id}/files/{name}` | 글을 볼 수 있는 사람 | 첨부 내려받기 |
+| `GET /admin/issues/export?formats=excel\|zip&board=&place=&status=&category=&from=&to=` | 관리자 + 다운로드 스위치 | 현재 필터 그대로 |
+
+- 목록 `GET /board/{id}` 필터 : `place`, `status`(비움 / `PENDING` 해결 외 전체 / 단계 이름, 예전 `OPEN` 은 `PENDING`), `category`, `from`, `to`.
+- 목록·상세의 **링크 복사** 버튼, 권한이 없는 링크는 403 안내 화면. 상세 타임라인에 상태 이력 단계 점.
+
+### 채팅 화면 · API
+
+| 메서드 · 주소 | 설명 |
+|---|---|
+| `GET /chat`, `GET /chat/rooms/{id}` | 목록 + 대화창 (모바일은 한 단) |
+| `GET /chat/rooms/list?q=&active=` | 목록 조각 HTML (검색·실시간 갱신) |
+| `GET /chat/rooms/{id}/messages?beforeId=&afterId=` | JSON : 이전 50개 / 빠진 메시지 + 참여자 읽음 위치 |
+| `POST /chat/rooms/{id}/messages` | multipart : `clientMessageId`(필수), `content`(2000자), `mentionIds`, `files`(10개, 개당 20MB) |
+| `POST /chat/rooms/{id}/read` | `lastReadMessageId` |
+| `POST /chat/rooms/{id}/mute` · `/leave` | 알림 끄기(`muted`) · 나가기 (매장·팀·공지 불가) |
+| `POST /chat/rooms/{id}/inquiry/close` | 문의 종료 (담당자) |
+| `POST /chat/direct/{memberId}` · `POST /chat/group` | 1:1 열기 · 그룹 만들기 (`name`, `memberIds`) |
+| `GET /chat/inquiry` · `POST /chat/inquiry/{topicId}` | 문의 주제 고르기 · 문의 방 열기 |
+| `GET /chat/unread` · `GET /chat/attachments/{id}` | 전체 안 읽은 수 · 첨부 (참여자만) |
+| `GET /members/{id}/card` | 프로필 카드 조각 (사진, 이름, 직급, 근무지, 근무 상태, 근무제 칩, 채팅 버튼) |
+| `/ws` (STOMP) | 구독 `/topic/rooms/{id}`, `/user/queue/chat`. CONNECT 에 CSRF 헤더 |
+| `GET /admin/chat` · `POST /admin/chat/notice` | 채널 현황·통계, 전체 공지 |
+| `GET·POST /admin/chat/topics`, `POST /admin/chat/topics/{id}/toggle` | 문의 주제·담당자 |
+| `GET /admin/chat/inquiries?topic=&status=`, `POST .../{id}/open`, `.../{id}/close` | 문의함 |
+| `GET /admin/monitor?status=&type=` | 재처리 모니터 : 이벤트 종류로 거르기 |
+
+- 사이드바 **채팅**(안 읽은 수, 알림 끈 방 제외), 관리자 **채팅 관리**. 다른 화면에서는 토스트.
+- 근무제 칩 : `fragments/ui :: policyChip(m)` (직원 목록, 프로필 카드, 채팅, 스케줄).
+- 설정 : `app.chat.max-file-mb`(20), `app.chat.max-files`(10).
