@@ -22,6 +22,7 @@
                     <span class="muted" th:text="|${post.author != null ? post.author.displayName : '알 수 없음'} · ${#temporals.format(post.created, 'yyyy.M.d HH:mm')} · 조회 ${post.viewCount}|">김민수</span>
                 </span>
                 <div class="actions">
+                    <button th:replace="~{fragments/ui :: copyLink(@{|/board/post/${post.id}|})}"></button>
                     <form sec:authorize="hasRole('ADMIN')" th:action="@{|/board/post/${post.id}/pin|}" method="post" class="inline">
                         <button type="submit" class="btn sm" th:text="${post.pinned} ? '고정 풀기' : '공지로 고정'">고정</button>
                     </form>
@@ -36,7 +37,7 @@
         <hr style="border:0;border-top:1px solid #EDF0F4;margin:0">
         <div class="post-body" th:text="${post.content}">내용</div>
         <ul class="files" th:unless="${#lists.isEmpty(post.files)}">
-            <li th:each="f : ${post.files}"><a th:href="${f.path}" th:text="|📎 ${f.originalName}|" download>첨부.pdf</a></li>
+            <li th:each="f : ${post.files}"><a th:href="@{|/board/post/${post.id}/files/${#strings.substringAfter(f.path, '/uploads/')}|}" th:text="|📎 ${f.originalName}|" download>첨부.pdf</a></li>
         </ul>
     </article>
 
@@ -44,7 +45,22 @@
     <article class="card flush issue-detail" th:if="${post.board.issueBoard}"
              th:with="done=${post.issueStatus != null and post.issueStatus.name() == 'RESOLVED'}" th:classappend="${done} ? 'is-done' : 'is-open'">
         <div class="id-banner">
-            <span class="id-status" th:text="${post.issueStatus != null ? post.issueStatus.label : '처리 대기'}">해결 완료</span>
+            <!-- 관리자 : 상태 칩을 눌러 다음 단계로 (ISS-01) -->
+            <div class="menu-wrap" sec:authorize="hasRole('ADMIN')" th:if="${post.issueStatus != null}">
+                <button type="button" class="id-status id-status-btn" data-menu-trigger aria-haspopup="true" aria-expanded="false"
+                        th:aria-label="|현재 상태 ${post.issueStatus.label}, 단계 바꾸기|"><th:block th:text="${post.issueStatus.label}">검토 중</th:block> ▾</button>
+                <div class="menu" role="menu" style="left:0;right:auto">
+                    <form th:each="n : ${post.issueStatus.nextSteps}" th:action="@{|/board/post/${post.id}/issue/status|}" method="post">
+                        <input type="hidden" name="status" th:value="${n.name()}">
+                        <button type="submit" role="menuitem" th:if="${n.name() == 'RESOLVED'}" data-confirm="해결 완료로 바꿀까요?"
+                                data-confirm-body="해결 내용은 꼭 적어야 해요. 글쓴이에게 알림이 가요." data-confirm-ok="해결 완료" data-reason="resolution" data-reason-label="해결 내용 (필수)" th:text="${n.label}">해결 완료</button>
+                        <button type="submit" role="menuitem" th:unless="${n.name() == 'RESOLVED'}"
+                                th:attr="data-confirm=|'${n.label}' 로 바꿀까요?|" data-confirm-body="글쓴이에게 알림이 가고 이력에 남아요." data-confirm-ok="바꾸기"
+                                th:text="${n.label}">검토 중</button>
+                    </form>
+                </div>
+            </div>
+            <span class="id-status" sec:authorize="!hasRole('ADMIN')" th:text="${post.issueStatus != null ? post.issueStatus.label : '보고 완료'}">해결 완료</span>
             <span class="id-age tnum" th:text="${post.elapsedText}">1일 만에 해결</span>
         </div>
         <header class="id-head">
@@ -53,11 +69,13 @@
             <div class="id-meta"><th:block th:text="${post.category != null ? post.category.label : '기타'}">매장</th:block><span class="sep">|</span>
                 <th:block th:text="${post.workplace != null ? post.workplace.name : '지점 없음'}">강남점</th:block></div>
             <div class="row" style="justify-content:space-between;margin-top:14px">
-                <span class="person"><span th:replace="~{fragments/ui :: avatar(${post.author}, 'sm')}"></span>
-                    <span th:text="${post.author != null ? post.author.displayName : '알 수 없음'}">이지은</span></span>
+                <button type="button" class="person person-btn" th:attr="data-member-card=${post.author?.id}" th:disabled="${post.author == null}"><span th:replace="~{fragments/ui :: avatar(${post.author}, 'sm')}"></span>
+                    <span th:text="${post.author != null ? post.author.displayName : '알 수 없음'}">이지은</span>
+                    <span th:replace="~{fragments/ui :: policyChip(${post.author})}"></span></button>
                 <span class="faint tnum small" th:text="|${#temporals.format(post.created, 'M.dd (E) HH:mm')} · 조회 ${post.viewCount}|">05.01 (목) 13:00</span>
             </div>
             <div class="actions" style="margin-top:12px">
+                <button th:replace="~{fragments/ui :: copyLink(@{|/board/post/${post.id}|})}"></button>
                 <form sec:authorize="hasRole('ADMIN')" th:action="@{|/board/post/${post.id}/pin|}" method="post" class="inline">
                     <button type="submit" class="btn sm" th:text="${post.pinned} ? '고정 풀기' : '공지로 고정'">고정</button>
                 </form>
@@ -77,13 +95,24 @@
                     <div class="post-body" th:text="${post.content}">세일 중 XYZ123 상품의 재고가 예상보다 빨리 소진되었습니다.</div>
                     <div class="att-grid" th:unless="${#lists.isEmpty(post.files)}">
                         <th:block th:each="f : ${post.files}">
-                            <a th:if="${f.image}" th:href="${f.path}" class="att-thumb" target="_blank" rel="noopener"><img th:src="${f.path}" th:alt="${f.originalName}" loading="lazy"></a>
-                            <a th:unless="${f.image}" th:href="${f.path}" class="att-file" download><span class="clip" aria-hidden="true">📎</span>
+                            <a th:if="${f.image}" th:href="@{|/board/post/${post.id}/files/${#strings.substringAfter(f.path, '/uploads/')}|}" class="att-thumb" target="_blank" rel="noopener"><img th:src="@{|/board/post/${post.id}/files/${#strings.substringAfter(f.path, '/uploads/')}|}" th:alt="${f.originalName}" loading="lazy"></a>
+                            <a th:unless="${f.image}" th:href="@{|/board/post/${post.id}/files/${#strings.substringAfter(f.path, '/uploads/')}|}" class="att-file" download><span class="clip" aria-hidden="true">📎</span>
                                 <span><b th:text="${f.originalName}">추가 재고 요청서</b><small th:text="${#strings.toUpperCase(#strings.substringAfter(f.originalName, '.'))}">PDF</small></span></a>
                         </th:block>
                     </div>
                 </div>
             </li>
+            <!-- 상태 변경 이력 : 작은 단계 점 (ISS-32) -->
+            <th:block th:each="h : ${history}"><li class="tl-item tl-step" th:if="${h.fromStatus != null}">
+                <span class="tl-dot" aria-hidden="true"></span>
+                <div class="tl-body">
+                    <span class="tl-step-text"><b th:text="${h.toStatus.label}">검토 중</b>
+                        <th:block th:text="|${h.fromStatus.label}에서 변경|">보고 완료에서 변경</th:block>
+                        <th:block th:if="${h.changedBy != null}" th:text="| · ${h.changedBy.displayName}|"> · 관리자</th:block>
+                        <span class="tnum" th:text="| · ${#temporals.format(h.changedAt, 'M.dd HH:mm')}|"> · 05.01 13:00</span></span>
+                    <span class="tl-step-memo" th:if="${h.memo != null}" th:text="${h.memo}">메모</span>
+                </div>
+            </li></th:block>
             <li class="tl-item tl-resolve" th:if="${done}">
                 <span class="tl-dot" aria-hidden="true">✓</span>
                 <div class="tl-body">
@@ -96,22 +125,22 @@
                     <div class="post-body" style="min-height:0" th:text="${post.resolution}">인근 매장에서 30개 지원</div>
                     <div class="att-grid" th:unless="${#lists.isEmpty(post.resolutionFiles)}">
                         <th:block th:each="f : ${post.resolutionFiles}">
-                            <a th:if="${f.image}" th:href="${f.path}" class="att-thumb" target="_blank" rel="noopener"><img th:src="${f.path}" th:alt="${f.originalName}" loading="lazy"></a>
-                            <a th:unless="${f.image}" th:href="${f.path}" class="att-file" download><span class="clip" aria-hidden="true">📎</span>
+                            <a th:if="${f.image}" th:href="@{|/board/post/${post.id}/files/${#strings.substringAfter(f.path, '/uploads/')}|}" class="att-thumb" target="_blank" rel="noopener"><img th:src="@{|/board/post/${post.id}/files/${#strings.substringAfter(f.path, '/uploads/')}|}" th:alt="${f.originalName}" loading="lazy"></a>
+                            <a th:unless="${f.image}" th:href="@{|/board/post/${post.id}/files/${#strings.substringAfter(f.path, '/uploads/')}|}" class="att-file" download><span class="clip" aria-hidden="true">📎</span>
                                 <span><b th:text="${f.originalName}">배송 확인서</b><small th:text="${#strings.toUpperCase(#strings.substringAfter(f.originalName, '.'))}">PDF</small></span></a>
                         </th:block>
                     </div>
                     <form th:if="${canReopen}" th:action="@{|/board/post/${post.id}/issue/reopen|}" method="post" style="margin-top:12px">
                         <button type="submit" class="btn sm ghost" data-confirm="해결을 취소할까요?"
-                                data-confirm-body="해결 내용과 해결 첨부가 지워지고 다시 ‘처리 대기’가 돼요. 글쓴이에게 알림이 가요." data-confirm-ok="해결 취소" data-danger>해결 취소…</button>
+                                data-confirm-body="해결 내용과 해결 첨부가 지워지고 다시 ‘검토 중’이 돼요. 글쓴이에게 알림이 가요." data-confirm-ok="해결 취소" data-danger>해결 취소…</button>
                     </form>
                 </div>
             </li>
             <li class="tl-item tl-pending" th:unless="${done}">
                 <span class="tl-dot" aria-hidden="true"></span>
                 <div class="tl-body">
-                    <h2 class="tl-title" th:text="${post.issueStatus != null and post.issueStatus.name() == 'IN_PROGRESS'} ? '처리 중' : '해결 대기'">해결 대기</h2>
-                    <form th:if="${post.issueStatus != null and post.issueStatus.name() == 'OPEN'}" th:action="@{|/board/post/${post.id}/issue/start|}" method="post" style="margin-bottom:12px">
+                    <h2 class="tl-title" th:text="${post.issueStatus != null ? post.issueStatus.label : '해결 대기'}">해결 대기</h2>
+                    <form th:if="${post.issueStatus != null and post.issueStatus.name() != 'IN_PROGRESS'}" th:action="@{|/board/post/${post.id}/issue/start|}" method="post" style="margin-bottom:12px">
                         <button type="submit" class="btn sm">처리 시작</button>
                         <span class="faint small">맡아서 처리하고 있다고 알려요</span>
                     </form>

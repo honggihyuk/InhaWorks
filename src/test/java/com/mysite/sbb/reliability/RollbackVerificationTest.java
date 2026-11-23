@@ -149,7 +149,7 @@ class RollbackVerificationTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         Post after = postRepository.findById(post.getId()).orElseThrow();
-        assertThat(after.getIssueStatus()).isEqualTo(IssueStatus.OPEN);
+        assertThat(after.getIssueStatus()).isEqualTo(IssueStatus.REPORTED);
         assertThat(after.getResolution()).isNull();
         assertThat(after.getResolvedBy()).isNull();
         assertThat(count(PUBLIC)).isEqualTo(files);
@@ -166,7 +166,7 @@ class RollbackVerificationTest {
 
         boardService.reopenIssue(post.getId(), admin);
         assertThat(count(PUBLIC)).isEqualTo(files);
-        assertThat(postRepository.findById(post.getId()).orElseThrow().getIssueStatus()).isEqualTo(IssueStatus.OPEN);
+        assertThat(postRepository.findById(post.getId()).orElseThrow().getIssueStatus()).isEqualTo(IssueStatus.REVIEWING);
     }
 
     // ---------- DB + Outbox ----------

@@ -502,6 +502,33 @@
         });
     }
 
+    // ---------- 10. 링크 복사 (이슈 목록·상세) ----------
+    function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+        // http 사내망에서는 clipboard API 가 없으므로 예전 방식으로
+        return new Promise(function (resolve, reject) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { /* 아래에서 실패 처리 */ }
+            ta.remove();
+            if (ok) resolve(); else reject(new Error('copy'));
+        });
+    }
+    document.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-copy-link]');
+        if (!b) return;
+        e.preventDefault();
+        copyText(new URL(b.dataset.copyLink, location.origin).href)
+            .then(function () { toast('링크 복사됨'); })
+            .catch(function () { toast('링크를 복사하지 못했어요.', 'error'); });
+    });
+
     function init(root) {
         initShiftForm(root);
         initTableCards(root);

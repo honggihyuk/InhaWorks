@@ -1,18 +1,22 @@
 package com.mysite.sbb.board.service;
 
 import com.mysite.sbb.board.constant.IssueCategory;
+import com.mysite.sbb.board.dto.IssueFilter;
 import com.mysite.sbb.board.dto.IssueSummary;
 import com.mysite.sbb.board.constant.BoardType;
 import com.mysite.sbb.board.constant.IssueStatus;
 import com.mysite.sbb.board.dto.PostForm;
 import com.mysite.sbb.board.entity.Board;
+import com.mysite.sbb.board.entity.IssueStatusHistory;
 import com.mysite.sbb.board.entity.Post;
 import com.mysite.sbb.board.entity.PostComment;
 import com.mysite.sbb.board.repository.BoardRepository;
+import com.mysite.sbb.board.repository.IssueStatusHistoryRepository;
 import com.mysite.sbb.board.repository.PostCommentRepository;
 import com.mysite.sbb.board.repository.PostRepository;
 import com.mysite.sbb.common.entity.FileRef;
 import com.mysite.sbb.common.exception.BusinessException;
+import com.mysite.sbb.common.exception.NoAccessException;
 import com.mysite.sbb.common.file.FileStore;
 import com.mysite.sbb.member.entity.Member;
 import com.mysite.sbb.member.service.MemberService;
@@ -21,7 +25,11 @@ import com.mysite.sbb.organization.service.OrganizationService;
 import com.mysite.sbb.outbox.service.OutboxService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,6 +45,7 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final PostRepository postRepository;
     private final PostCommentRepository postCommentRepository;
+    private final IssueStatusHistoryRepository historyRepository;
     private final MemberService memberService;
     private final OrganizationService organizationService;
     private final FileStore fileStore;
@@ -57,7 +66,7 @@ public class BoardService {
     @Transactional(readOnly = true)
     public Board getBoard(Long id, Member me) {
         Board b = boardRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("게시판을 찾을 수 없어요."));
-        if (!b.canAccess(me)) throw new BusinessException("팀 게시판은 그 팀 직원만 볼 수 있어요.");
+        if (!b.canAccess(me)) throw new NoAccessException("이 게시판을 볼 권한이 없어요. 팀 게시판은 그 팀 직원만 볼 수 있어요.");
         return b;
     }
 
@@ -87,21 +96,16 @@ public class BoardService {
                 : postRepository.findByBoardIdAndIssueStatusOrderByPinnedDescIdDesc(board.getId(), status);
     }
 
-    // 이슈 게시판 목록 : 상태 · 지점 · 분류로 거르기 (고정 글 먼저, 최신순)
+    // 이슈 게시판 목록 : 상태 · 지점 · 분류 · 기간으로 거르기 (고정 글 먼저, 최신순)
     @Transactional(readOnly = true)
-    public List<Post> getIssuePosts(Board board, IssueStatus status, Long workplaceId, IssueCategory category) {
-        return postRepository.findByBoardIdOrderByPinnedDescIdDesc(board.getId()).stream()
-                .filter(p -> status == null || p.getIssueStatus() == status
-                        || (status == IssueStatus.OPEN && p.getIssueStatus() == IssueStatus.IN_PROGRESS))
-                .filter(p -> workplaceId == null || (p.getWorkplace() != null && p.getWorkplace().getId().equals(workplaceId)))
-                .filter(p -> category == null || p.getCategory() == category)
-                .toList();
+    public List<Post> getIssuePosts(Board board, IssueFilter filter) {
+        return postRepository.findByBoardIdOrderByPinnedDescIdDesc(board.getId()).stream().filter(filter::matches).toList();
     }
 
-    // 이슈 통계 (지점 필터 반영) : 처리 대기(처리 중 포함) 건수·미해결 기간, 해결 완료 건수·해결 소요 기간
+    // 이슈 통계 (지점 필터 반영) : 처리 대기 중 = 해결 완료가 아닌 모든 단계 (ISS-05)
     @Transactional(readOnly = true)
     public IssueSummary issueSummary(Board board, Long workplaceId) {
-        List<Post> all = getIssuePosts(board, null, workplaceId, null);
+        List<Post> all = getIssuePosts(board, new IssueFilter(null, workplaceId, null, null, null));
         List<Post> open = all.stream().filter(p -> p.getIssueStatus() != IssueStatus.RESOLVED).toList();
         List<Post> done = all.stream().filter(p -> p.getIssueStatus() == IssueStatus.RESOLVED).toList();
         long inProgress = open.stream().filter(p -> p.getIssueStatus() == IssueStatus.IN_PROGRESS).count();
@@ -144,7 +148,7 @@ public class BoardService {
     @Transactional(readOnly = true)
     public Post getPost(Long postId, Member me) {
         Post p = postRepository.findById(postId).orElseThrow(() -> new EntityNotFoundException("글을 찾을 수 없어요."));
-        if (!p.getBoard().canAccess(me)) throw new BusinessException("팀 게시판은 그 팀 직원만 볼 수 있어요.");
+        if (!p.getBoard().canAccess(me)) throw new NoAccessException("이 글을 볼 권한이 없어요. 팀 게시판은 그 팀 직원만 볼 수 있어요.");
         return p;
     }
 
@@ -164,7 +168,7 @@ public class BoardService {
                 .title(form.getTitle().strip())
                 .content(form.getContent())
                 .pinned(me.isAdmin() && form.isPinned())
-                .issueStatus(board.isIssueBoard() ? IssueStatus.OPEN : null)
+                .issueStatus(board.isIssueBoard() ? IssueStatus.REPORTED : null)
                 .category(board.isIssueBoard() ? (form.getCategory() == null ? IssueCategory.ETC : form.getCategory()) : null)
                 .workplace(board.isIssueBoard() ? issueWorkplace(form, me) : null)
                 .submitToken(form.getSubmitToken())
@@ -172,6 +176,7 @@ public class BoardService {
                 .build();
         addFiles(post, files);
         postRepository.save(post);
+        if (board.isIssueBoard()) recordHistory(post, null, IssueStatus.REPORTED, me, null);
 
         // 관리자 고정 공지 → 전 직원(볼 수 있는 사람) 알림
         if (post.isPinned()) {
@@ -207,6 +212,7 @@ public class BoardService {
         p.getFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));
         p.getResolutionFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));
         postCommentRepository.deleteByPostId(postId);
+        historyRepository.deleteByPostId(postId);
         postRepository.delete(p);
         return boardId;
     }
@@ -223,51 +229,51 @@ public class BoardService {
         return w != null ? w : me.getWorkplace();
     }
 
-    // ---------- 이슈 해결 흐름 : 처리 대기 → (처리 시작) → 해결 등록 → (해결 취소) ----------
+    // ---------- 이슈 상태 흐름 : 보고 완료 → 검토 중 → (처리 대기 중) → 처리 중 → 해결 완료 ----------
+    // [신뢰성] REL-40 : 상태 + 이력 + 알림 이벤트를 이 트랜잭션 하나로 저장한다 (중간에 실패하면 모두 롤백)
 
-    // 처리 시작 : 누가 맡았는지 알 수 있게 상태만 바꾼다
-    public void startIssue(Long postId, Member me) {
-        Post p = issue(postId, me);
-        if (p.getIssueStatus() != IssueStatus.OPEN) throw new BusinessException("처리 대기 중인 이슈만 시작할 수 있어요.");
-        p.setIssueStatus(IssueStatus.IN_PROGRESS);
-        notifyAuthor(p, me, "처리를 시작했어요.");
+    @Transactional(readOnly = true)
+    public List<IssueStatusHistory> getHistory(Long postId) {
+        return historyRepository.findTimeline(postId);
     }
 
-    // 해결 등록 : 해결 내용(필수) + 첨부, 해결자·시각 기록, 글쓴이에게 알림
-    public void resolveIssue(Long postId, Member me, String resolution, List<MultipartFile> files) {
-        Post p = issue(postId, me);
-        if (p.getIssueStatus() == IssueStatus.RESOLVED) throw new BusinessException("이미 해결된 이슈예요.");
-        if (resolution == null || resolution.isBlank()) throw new BusinessException("해결 내용을 적어 주세요.");
-        p.setIssueStatus(IssueStatus.RESOLVED);
-        p.setResolution(resolution.strip());
-        p.setResolvedAt(LocalDateTime.now());
-        p.setResolvedBy(me);
-        p.getResolutionFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));   // 예전 해결 첨부 : 커밋 뒤 정리
-        p.getResolutionFiles().clear();
-        if (files != null) {
-            for (MultipartFile f : files) {
-                FileRef ref = fileStore.storeAttachment(f);
-                if (ref != null) p.getResolutionFiles().add(ref);
-            }
+    // 상태 칩 메뉴 (관리자) : 상태도에 있는 다음 단계로만 바꾼다
+    @Retryable(includes = {ConcurrencyFailureException.class, TransientDataAccessException.class,
+            CannotCreateTransactionException.class}, maxRetries = 3, delay = 100, multiplier = 2)
+    public void changeStatus(Long postId, Member me, IssueStatus to, String memo, String resolution) {
+        if (!me.isAdmin()) throw new NoAccessException("이슈 단계는 관리자만 바꿀 수 있어요.");
+        Post p = lockedIssue(postId, me);
+        IssueStatus from = p.getIssueStatus();
+        if (from == to) return;     // 같은 단계를 다시 눌렀거나 두 번 제출 : 아무 일도 없다
+        if (from == null || !from.canMoveTo(to)) {
+            throw new BusinessException("'" + (from == null ? "-" : from.getLabel()) + "' 에서 '" + to.getLabel() + "' 로는 바꿀 수 없어요.");
         }
-        notifyAuthor(p, me, "해결을 등록했어요.");
+        moveTo(p, to, me, memo, resolution, null);
     }
 
-    // 해결 취소 : 해결한 사람 · 글쓴이 · 매니저 · 관리자. 해결 내용과 첨부를 비우고 처리 대기로 되돌린다
+    // 처리 시작 (기존 버튼) : 해결 전 어느 단계에서든 처리 중으로
+    public void startIssue(Long postId, Member me) {
+        Post p = lockedIssue(postId, me);
+        IssueStatus from = p.getIssueStatus();
+        if (from == IssueStatus.RESOLVED || from == IssueStatus.IN_PROGRESS) {
+            throw new BusinessException("처리 대기 중인 이슈만 시작할 수 있어요.");
+        }
+        moveTo(p, IssueStatus.IN_PROGRESS, me, null, null, null);
+    }
+
+    // 해결 등록 (기존 폼) : 해결 내용(필수) + 첨부, 해결자·시각 기록, 글쓴이에게 알림
+    public void resolveIssue(Long postId, Member me, String resolution, List<MultipartFile> files) {
+        Post p = lockedIssue(postId, me);
+        if (p.getIssueStatus() == IssueStatus.RESOLVED) throw new BusinessException("이미 해결된 이슈예요.");
+        moveTo(p, IssueStatus.RESOLVED, me, null, resolution, files);
+    }
+
+    // 해결 취소 : 해결한 사람 · 글쓴이 · 매니저 · 관리자. 해결 내용과 첨부를 비우고 검토 중으로 되돌린다
     public void reopenIssue(Long postId, Member me) {
-        Post p = issue(postId, me);
+        Post p = lockedIssue(postId, me);
         if (p.getIssueStatus() != IssueStatus.RESOLVED) throw new BusinessException("해결된 이슈만 취소할 수 있어요.");
-        boolean allowed = me.isAdmin() || me.isManager()
-                || (p.getResolvedBy() != null && p.getResolvedBy().getId().equals(me.getId()))
-                || (p.getAuthor() != null && p.getAuthor().getId().equals(me.getId()));
-        if (!allowed) throw new BusinessException("해결한 사람, 글쓴이, 매니저, 관리자만 해결을 취소할 수 있어요.");
-        p.setIssueStatus(IssueStatus.OPEN);
-        p.setResolution(null);
-        p.setResolvedAt(null);
-        p.setResolvedBy(null);
-        p.getResolutionFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));
-        p.getResolutionFiles().clear();
-        notifyAuthor(p, me, "해결을 취소했어요. 다시 처리 대기예요.");
+        if (!canReopen(p, me)) throw new BusinessException("해결한 사람, 글쓴이, 매니저, 관리자만 해결을 취소할 수 있어요.");
+        moveTo(p, IssueStatus.REVIEWING, me, "해결 취소", null, null);
     }
 
     public boolean canReopen(Post p, Member me) {
@@ -276,35 +282,82 @@ public class BoardService {
                 || (p.getAuthor() != null && p.getAuthor().getId().equals(me.getId())));
     }
 
-    private Post issue(Long postId, Member me) {
-        Post p = getPost(postId, me);
+    // 예전 상태 폼 호환 : 어느 단계로든 바꿀 수 있고, 해결로 바꿀 때는 해결 방법이 꼭 있어야 한다
+    public void changeIssue(Long postId, Member me, IssueStatus status, String resolution) {
+        Post p = lockedIssue(postId, me);
+        if (p.getIssueStatus() == status) {
+            if (status == IssueStatus.RESOLVED && resolution != null && !resolution.isBlank()) p.setResolution(resolution.strip());
+            return;
+        }
+        moveTo(p, status, me, null, resolution, null);
+    }
+
+    // 모든 상태 변경이 지나는 한 곳 : 해결 값 정리 → 상태 → 이력 → 글쓴이 알림
+    private void moveTo(Post p, IssueStatus to, Member me, String memo, String resolution, List<MultipartFile> files) {
+        IssueStatus from = p.getIssueStatus();
+        if (to == IssueStatus.RESOLVED) {
+            if (resolution == null || resolution.isBlank()) throw new BusinessException("해결 내용을 적어 주세요.");
+            p.setResolution(resolution.strip());
+            p.setResolvedAt(LocalDateTime.now());
+            p.setResolvedBy(me);
+            clearResolutionFiles(p);
+            if (files != null) {
+                for (MultipartFile f : files) {
+                    FileRef ref = fileStore.storeAttachment(f);
+                    if (ref != null) p.getResolutionFiles().add(ref);
+                }
+            }
+        } else if (from == IssueStatus.RESOLVED) {
+            p.setResolution(null);
+            p.setResolvedAt(null);
+            p.setResolvedBy(null);
+            clearResolutionFiles(p);
+        }
+        p.setIssueStatus(to);
+        String note = MemberService.emptyToNull(memo);
+        recordHistory(p, from, to, me, note);
+        if (p.getAuthor() != null && !p.getAuthor().getId().equals(me.getId())) {
+            outboxService.notify(List.of(p.getAuthor()), NotificationType.BOARD, "이슈 " + to.getLabel() + " : " + p.getTitle(),
+                    me.getDisplayName() + " 님이 상태를 '" + to.getLabel() + "' 로 바꿨어요." + (note == null ? "" : " (" + note + ")"),
+                    "/board/post/" + p.getId(), "Post", p.getId(), null);
+        }
+    }
+
+    private void recordHistory(Post p, IssueStatus from, IssueStatus to, Member me, String memo) {
+        historyRepository.save(IssueStatusHistory.builder().post(p).fromStatus(from).toStatus(to)
+                .changedBy(me).memo(memo).changedAt(LocalDateTime.now()).build());
+    }
+
+    private void clearResolutionFiles(Post p) {
+        p.getResolutionFiles().forEach(f -> fileStore.deleteAfterCommit(f.getPath()));   // 커밋 뒤 정리
+        p.getResolutionFiles().clear();
+    }
+
+    private Post lockedIssue(Long postId, Member me) {
+        Post p = postRepository.findByIdForUpdate(postId).orElseThrow(() -> new EntityNotFoundException("글을 찾을 수 없어요."));
+        if (!p.getBoard().canAccess(me)) throw new NoAccessException("이 글을 볼 권한이 없어요. 팀 게시판은 그 팀 직원만 볼 수 있어요.");
         if (!p.getBoard().isIssueBoard()) throw new BusinessException("이슈 게시판 글이 아니에요.");
         return p;
     }
 
-    private void notifyAuthor(Post p, Member me, String what) {
-        if (p.getAuthor() != null && !p.getAuthor().getId().equals(me.getId())) {
-            outboxService.notify(List.of(p.getAuthor()), NotificationType.BOARD, "이슈 " + p.getIssueStatus().getLabel() + " : " + p.getTitle(),
-                    me.getDisplayName() + " 님이 " + what, "/board/post/" + p.getId(), "Post", p.getId(), null);
-        }
+    // ---------- 첨부 접근 권한 (SEC-05) ----------
+
+    // 글의 첨부 하나 (저장 이름으로 찾는다). 볼 권한이 없으면 예외
+    @Transactional(readOnly = true)
+    public FileRef getPostFile(Long postId, String storedName, Member me) {
+        Post p = getPost(postId, me);
+        String path = "/uploads/" + storedName;
+        return java.util.stream.Stream.concat(p.getFiles().stream(), p.getResolutionFiles().stream())
+                .filter(f -> path.equals(f.getPath())).findFirst()
+                .orElseThrow(() -> new EntityNotFoundException("첨부를 찾을 수 없어요."));
     }
 
-    // 이슈 상태 바꾸기 (예전 폼 호환) : 해결로 바꿀 때는 해결 방법이 꼭 있어야 한다
-    public void changeIssue(Long postId, Member me, IssueStatus status, String resolution) {
-        Post p = getPost(postId, me);
-        if (!p.getBoard().isIssueBoard()) throw new BusinessException("이슈 게시판 글이 아니에요.");
-        if (status == IssueStatus.RESOLVED && (resolution == null || resolution.isBlank())) {
-            throw new BusinessException("해결 방법을 적어 주세요.");
-        }
-        p.setIssueStatus(status);
-        if (resolution != null && !resolution.isBlank()) p.setResolution(resolution.strip());
-        p.setResolvedAt(status == IssueStatus.RESOLVED ? LocalDateTime.now() : null);
-        p.setResolvedBy(status == IssueStatus.RESOLVED ? me : null);
-        if (p.getAuthor() != null && !p.getAuthor().getId().equals(me.getId())) {
-            outboxService.notify(List.of(p.getAuthor()), NotificationType.BOARD, "이슈 " + status.getLabel() + " : " + p.getTitle(),
-                    me.getDisplayName() + " 님이 상태를 '" + status.getLabel() + "' 로 바꿨어요.", "/board/post/" + p.getId(),
-                    "Post", p.getId(), null);
-        }
+    // /uploads/** 직접 주소 : 팀 전용 게시판 글의 첨부면 그 게시판 권한이 있어야 한다
+    @Transactional(readOnly = true)
+    public boolean canReadUpload(String webPath, Member me) {
+        return java.util.stream.Stream.concat(postRepository.findByFilePath(webPath).stream(),
+                        postRepository.findByResolutionFilePath(webPath).stream())
+                .allMatch(p -> p.getBoard().canAccess(me));
     }
 
     // ---------- 댓글 ----------
