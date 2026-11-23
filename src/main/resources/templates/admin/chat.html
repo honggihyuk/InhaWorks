@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>채팅 관리</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><span>관리</span><span class="sep">›</span><b>채팅</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header"><div>
+        <h1 class="page-title">채팅 관리</h1>
+        <p class="page-sub">채널 현황을 보고 전체 공지를 보내요. 1:1 대화 내용은 볼 수 없고 건수만 보여요</p>
+    </div></div>
+    <div th:replace="~{admin/chat-tabs :: tabs('channels')}"></div>
+
+    <section class="grid grid-4" aria-label="채팅 통계">
+        <div class="card kpi"><span class="label">채널</span><span class="value" th:text="${#lists.size(channels)}">5</span></div>
+        <a class="card kpi" th:href="@{/admin/chat/inquiries(status='OPEN')}"><span class="label">미답변 문의</span>
+            <span class="value" th:classappend="${openInquiries > 0} ? 'red'" th:text="${openInquiries}">0</span></a>
+        <div class="card kpi"><span class="label">1:1 대화방</span><span class="value" th:text="${directRooms}">0</span></div>
+        <div class="card kpi"><span class="label">1:1 메시지</span><span class="value" th:text="${directMessages}">0</span><span class="foot">건수만 집계해요</span></div>
+    </section>
+
+    <section class="card">
+        <div class="card-head"><h2>전체 공지 쓰기</h2><span class="meta">전 직원의 공지 채널로 가요</span></div>
+        <form th:action="@{/admin/chat/notice}" method="post" class="stack" style="gap:10px" data-once>
+            <input type="hidden" name="clientMessageId" th:value="${noticeToken}">
+            <label class="sr-only" for="notice-text">공지 내용</label>
+            <textarea id="notice-text" name="content" class="textarea" rows="3" maxlength="2000" required placeholder="공지 내용을 입력해 주세요"></textarea>
+            <div class="row" style="justify-content:flex-end"><button type="submit" class="btn primary">공지 보내기</button></div>
+        </form>
+    </section>
+
+    <section class="card flush">
+        <div class="card-head"><h2>채널 목록</h2></div>
+        <div th:if="${#lists.isEmpty(channels)}" class="empty-sm" style="padding:18px 22px">채널이 없어요.</div>
+        <div class="table-box" th:unless="${#lists.isEmpty(channels)}" style="margin-top:8px">
+            <table class="t">
+                <thead><tr><th>채널</th><th>종류</th><th class="right">참여 인원</th><th class="right">메시지</th><th>마지막 활동</th></tr></thead>
+                <tbody>
+                <tr th:each="c : ${channels}">
+                    <td class="cell-title"><b th:text="${c.name}">인하점</b></td>
+                    <td><span class="chip outline" th:text="${c.typeLabel}">매장 채널</span></td>
+                    <td class="right tnum" th:text="${c.members}">12</td>
+                    <td class="right tnum" th:text="${c.messages}">120</td>
+                    <td class="tnum muted" th:text="${c.lastAt != null ? #temporals.format(c.lastAt, 'M.d HH:mm') : '-'}">11.23 10:20</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

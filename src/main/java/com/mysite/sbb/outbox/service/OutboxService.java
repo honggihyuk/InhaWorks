@@ -10,8 +10,14 @@ import com.mysite.sbb.outbox.entity.OutboxEvent;
 import com.mysite.sbb.outbox.repository.OutboxEventRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +35,11 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class OutboxService {
+
+    public static final int MONITOR_PAGE_SIZE = 20;
+
+    // [REL-51] 재처리 경로는 별도 로거 이름으로 남긴다 (OPS-03)
+    public static final Logger REPROCESS_LOG = LoggerFactory.getLogger("com.mysite.sbb.reprocess");
 
     private final OutboxEventRepository outboxEventRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -73,10 +84,28 @@ public class OutboxService {
 
     // ---------- 재처리 모니터 ----------
 
+    // 상태·종류로 거른 이벤트 한 페이지 (최신순). 범위를 벗어난 번호는 마지막 페이지로
     @Transactional(readOnly = true)
-    public List<OutboxEvent> getEvents(OutboxStatus status) {
-        return status == null ? outboxEventRepository.findTop100ByOrderByIdDesc()
-                : outboxEventRepository.findTop100ByStatusOrderByIdDesc(status);
+    public Page<OutboxEvent> getEventPage(OutboxStatus status, String eventType, int page) {
+        Page<OutboxEvent> result = findEvents(status, eventType, Math.max(page, 0));
+        if (result.getContent().isEmpty() && result.getTotalPages() > 0 && result.getNumber() >= result.getTotalPages()) {
+            return findEvents(status, eventType, result.getTotalPages() - 1);
+        }
+        return result;
+    }
+
+    private Page<OutboxEvent> findEvents(OutboxStatus status, String eventType, int page) {
+        Pageable pageable = PageRequest.of(page, MONITOR_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"));
+        boolean typed = eventType != null && !eventType.isBlank();
+        if (status != null && typed) return outboxEventRepository.findByStatusAndEventType(status, eventType, pageable);
+        if (status != null) return outboxEventRepository.findByStatus(status, pageable);
+        if (typed) return outboxEventRepository.findByEventType(eventType, pageable);
+        return outboxEventRepository.findAll(pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getEventTypes() {
+        return outboxEventRepository.findEventTypes();
     }
 
     @Transactional(readOnly = true)
@@ -89,6 +118,8 @@ public class OutboxService {
     public void reprocess(Long id) {
         OutboxEvent event = outboxEventRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("이벤트를 찾을 수 없어요."));
+        REPROCESS_LOG.info("수동 재처리 : 이벤트 #{} 종류={} 이전 상태={} 시도={} 오류={}", event.getId(), event.getEventType(),
+                event.getStatus(), event.getRetryCount(), event.getLastError());
         event.resetForReprocess(LocalDateTime.now());
         eventPublisher.publishEvent(new OutboxSavedEvent(event.getId()));
     }

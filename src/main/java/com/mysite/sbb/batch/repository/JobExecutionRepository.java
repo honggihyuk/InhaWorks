@@ -13,7 +13,5 @@ public interface JobExecutionRepository extends JpaRepository<JobExecution, Long
 
     List<JobExecution> findByStatus(JobStatus status);
 
-    List<JobExecution> findTop50ByOrderByIdDesc();
-
     long countByStatus(JobStatus status);
 }

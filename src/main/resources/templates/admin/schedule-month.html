@@ -65,7 +65,7 @@
                             <div class="sb-time tnum" th:unless="${g.off()}" th:text="${g.timeText()}">06:00–12:00</div>
                             <div class="sb-people">
                                 <span class="sb-person" th:each="s : ${g.schedules()}">
-                                    <span th:text="${s.member.displayName}">류다빈</span>
+                                    <span th:text="${s.member.displayName}">류다빈</span><span th:replace="~{fragments/ui :: policyChip(${s.member})}"></span>
                                     <form th:action="@{|/admin/schedule/${s.id}/delete|}" method="post" class="inline">
                                         <input type="hidden" name="month" th:value="${cal.month()}">
                                         <input type="hidden" name="who" th:value="${who}">

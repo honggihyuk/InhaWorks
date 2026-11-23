@@ -15,6 +15,7 @@
 8. [장애 대응 표 (어디서 실패하면 무엇이 막아 주나)](#8-장애-대응-표)
 9. [보안](#9-보안)
 10. [방어 설계와 롤백 검증](#10-방어-설계와-롤백-검증)
+11. [이슈 고도화 · 사내 채팅 워크플로 (DOC-01 ~ 10)](#11-이슈-고도화--사내-채팅-워크플로-doc-01--10)
 
 <br>
 
@@ -61,9 +62,10 @@ flowchart LR
 | `member` / `admin` | 직원 로그인, 내 정보 / 직원 관리, 재처리 모니터 |
 | `todo` | 반복 할 일, 직원별 하루 할 일, 제출·검수·댓글 |
 | `report` | 보고서 양식(폼 빌더), 제출, 결재, 엑셀·zip |
-| `board` | 게시판, 글, 이슈 상태, 댓글 |
+| `board` | 게시판, 글, 이슈 5단계·상태 이력·내보내기, 댓글 |
 | `attendance` | 출퇴근, 스케줄, 휴가, 근무 정책(근무제)·근무 유형 (`WorkPolicyService`) |
 | `hr` | 직원 허브, 인사 서류 종류·직원 서류(비공개 파일 + 열람 권한), 인사 변경 이력, 계약 만료·복직 알림 (`HrService`, `HrHistoryService`) |
+| `chat` | 사내 채팅 : 대화방, 메시지, 읽음, 멘션, 문의 채널, 프로필 카드, 관리자 문의함 |
 | `notification` | 앱 안 알림 |
 | `outbox` | Transactional Outbox (저장 · 릴레이 · 처리기) |
 | `batch` | 배치 실행 기록, 생성·마감·복구 배치 |
@@ -462,5 +464,280 @@ public TodoAssignment review(...)   // 검수 / 결재 / 출퇴근 / 휴가 승�
 | ⑧ | 같은 출퇴근 기록을 두 곳에서 수정 | 늦은 쪽 낙관적 락 충돌, 먼저 저장한 값만 남음 | 통과 |
 | ⑨ | 배치 중 할 일 하나만 장애 | 나머지 할 일 배정은 커밋, 실패만 알림, 재실행은 빠진 것만·중복 없음 | 통과 |
 | ⑩ | 잘못된 주소 · 없는 직원 | 400 / 404 안전 안내, 예외 이름·스택 없음 | 통과 |
+| ⑪ | 채팅 전송 직후 예외 | 메시지·Outbox 없음, 첨부 파일 삭제, 방 요약 그대로 | 통과 |
+| ⑫ | 이슈 상태 변경 중 이력 저장 실패 | 상태·이력·알림 이벤트 모두 롤백 | 통과 |
+| ⑬ | 이슈 상태 변경 뒤 알림 이벤트 저장 실패 | 상태·이력 롤백 | 통과 |
 
 함께 도는 기존 검증 : `OutboxRetryTest`(재시도 → DEAD → 재처리, 알림 멱등), `TodoAssignmentGeneratorTest`(배치 멱등·catch-up), `LoginPageSeparationTest`(로그인 계정 종류 분리).
+
+<br>
+
+## 11. 이슈 고도화 · 사내 채팅 워크플로 (DOC-01 ~ 10)
+
+`requirements.md` 14장의 도표예요. 이미 있는 그림(5장 Outbox, 6장 배치)은 그대로 두고, 새 흐름을 더했어요.
+
+### DOC-01 전체 구조
+
+브라우저의 요청은 보안 체인 두 개 중 하나를 지나 컨트롤러 → 서비스 → 리포지토리로 가요. 업무 저장과 같은 트랜잭션에 Outbox 행을 넣고, 커밋 뒤 릴레이가 알림과 채팅 브로드캐스트를 처리해요. WebSocket 은 **받는 길**로만 쓰고, 메시지 보내기는 항상 POST 로 지나가서 검증·중복 방지·Outbox 가 한 길에 모여 있어요.
+
+```mermaid
+flowchart LR
+    subgraph Client["브라우저"]
+        AD["관리자 화면"]
+        EM["직원 화면"]
+        JS["chat-live.js · chat.js<br/>STOMP · 재연결 · 폴링 대체"]
+    end
+    AD & EM --> SEC
+    subgraph SEC["Spring Security"]
+        A1["관리자 체인 /admin/**<br/>허용 IP 필터"]
+        A2["직원 체인 (나머지)<br/>/ws 포함, 로그인 필요"]
+    end
+    SEC --> C["Controller"] --> S["Service<br/>@Transactional · @Retryable"] --> R["Repository (JPA)"] --> DB[("MySQL / H2")]
+    S -- 같은 트랜잭션 --> OB[("outbox_event")]
+    S -- 첨부 --> FS[("uploads · private-uploads")]
+    OB --> RL["OutboxRelay<br/>커밋 직후 + 5초 폴링"] --> P["OutboxProcessor"]
+    P --> H1["NotificationOutboxHandler"] --> N[("notification")]
+    P --> H2["ChatMessageOutboxHandler"] --> BR["STOMP 내장 브로커<br/>/topic/rooms/{id} · /user/queue/chat"]
+    JS <-. WebSocket /ws .-> BR
+    BJ["BatchScheduler"] --> S
+```
+
+### DOC-02 로그인 분리
+
+주소에 따라 체인이 갈리고, 비밀번호가 맞은 뒤에 계정 종류를 확인해요. 틀린 비밀번호와 계정 종류 오류를 구분해 주지 않아서 계정 종류가 드러나지 않아요.
+
+```mermaid
+flowchart TD
+    Q["요청"] --> M{"/admin/** ?"}
+    M -- 예 --> IP{"허용 IP?"}
+    IP -- 아니오 --> F403["403"]
+    IP -- 예 --> AL{"로그인 + ADMIN?"}
+    AL -- 예 --> AOK["관리자 화면"]
+    AL -- 비로그인 --> ALOGIN["/admin/login"]
+    AL -- 직원 계정 --> DENIED["/admin/login?denied"]
+    M -- 아니오 --> UL{"로그인?"}
+    UL -- 아니오 --> ULOGIN["/member/login"]
+    UL -- 예 --> UOK["직원 화면 · /chat · /ws"]
+    ALOGIN --> CK1{"비밀번호 OK + ADMIN?"}
+    ULOGIN --> CK2{"비밀번호 OK + 비ADMIN?"}
+    CK1 -- 계정 종류 다름 --> WRONG["?wrongPage"]
+    CK2 -- 계정 종류 다름 --> WRONG
+```
+
+### DOC-03 요청 처리 공통 흐름
+
+전처리에서 막히면 아무것도 저장되지 않아요. 트랜잭션 안의 업무 데이터와 Outbox 는 함께 커밋되거나 함께 롤백되고, 후처리는 커밋된 것만 처리해요.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as 브라우저
+    participant C as Controller
+    participant S as Service
+    participant F as FileStore
+    participant DB as DB
+    participant R as OutboxRelay
+    B->>C: POST (CSRF, submitToken / clientMessageId)
+    C->>C: @Valid 입력 검증
+    C->>S: 호출
+    S->>F: 파일 저장 (확장자·크기, UUID 이름)
+    S->>DB: 업무 데이터 + outbox_event (한 트랜잭션)
+    alt 실패
+        DB-->>S: ROLLBACK
+        F->>F: 방금 저장한 파일 삭제 (보상)
+        S-->>B: 안내 (저장되지 않음)
+    else 성공
+        DB-->>S: COMMIT
+        S-->>B: 결과
+        R->>DB: 빠른 경로(커밋 직후) / 느린 경로(5초)
+        R->>R: 처리 → DONE, 실패 시 백오프 → DEAD
+    end
+```
+
+### DOC-04 채팅 메시지 전송
+
+방 행을 잠그고 저장하기 때문에 **같은 방 안에서는 메시지 id 순서와 커밋 순서가 같아요**. 그래서 `afterId` 로 보정할 때 늦게 커밋된 메시지를 건너뛰는 일이 없어요. 전달은 "최소 한 번"이고, 화면은 메시지 id 로 중복을 걸러요.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as 브라우저
+    participant C as ChatApiController
+    participant S as ChatMessageService / Writer
+    participant DB as MySQL
+    participant R as OutboxRelay
+    participant H as ChatMessageOutboxHandler
+    participant W as STOMP 브로커
+
+    B->>C: POST /chat/rooms/{id}/messages (clientMessageId, 파일)
+    C->>S: send()
+    S->>DB: 참여자 확인 + clientMessageId 조회
+    alt 이미 저장됨
+        S-->>B: 기존 메시지 (중복 저장 없음)
+    else 새 메시지
+        S->>S: 첨부를 비공개 폴더에 저장
+        S->>DB: 방 잠금 → 재확인 → message · 첨부 · 멘션 · 방 요약 · outbox (한 트랜잭션)
+        DB-->>S: COMMIT
+        S-->>B: 저장된 메시지 (id)
+        R->>H: CHAT_MESSAGE_CREATED
+        H->>DB: 멘션 알림 (sourceEventKey 로 한 번만)
+        H->>W: /topic/rooms/{id} 브로드캐스트
+        H->>W: /user/queue/chat (토스트 · 안 읽은 수)
+        alt 처리 실패
+            R->>DB: retryCount+1, 백오프 → 최대 횟수면 DEAD
+        end
+    end
+    Note over B,W: 끊겼다 돌아오면 GET messages?afterId= 로 보정, WebSocket 불가 시 3초 폴링
+```
+
+### DOC-05 이슈 상태 전이
+
+상태 칩 메뉴(관리자)는 아래 화살표로만 움직여요. 상태 · 이력 · 알림 이벤트는 `BoardService.moveTo` 한 곳을 지나 한 트랜잭션으로 저장돼요. 기존 버튼(처리 시작, 해결 등록, 해결 취소)도 같은 곳을 지나요.
+
+```mermaid
+stateDiagram-v2
+    [*] --> REPORTED : 이슈 등록
+    REPORTED --> REVIEWING : 검토 시작
+    REVIEWING --> WAITING : 처리 대기
+    REVIEWING --> IN_PROGRESS : 바로 처리
+    WAITING --> IN_PROGRESS : 처리 시작
+    IN_PROGRESS --> RESOLVED : 해결 등록 (내용 필수)
+    REVIEWING --> RESOLVED : 즉시 해결 (내용 필수)
+    RESOLVED --> REVIEWING : 해결 취소 (재오픈)
+```
+
+데이터 이전(`IssueStatusMigration`, 시작할 때마다 실행해도 같은 결과) : 예전 MySQL 컬럼은 `ENUM('IN_PROGRESS','OPEN','RESOLVED')` 이라 새 값을 넣을 수 없어요. 컬럼을 `VARCHAR(20)` 으로 넓히고 `OPEN → REPORTED` 로 옮겨요.
+
+### DOC-06 Outbox 재시도 · DEAD · 수동 재처리
+
+[5장](#5-transactional-outbox--재시도--dead--수동-재처리)의 상태도를 그대로 따르고, 채팅 이벤트도 같은 규칙이에요. 재처리 모니터에서 종류(알림 / 채팅 전송)로 거를 수 있고, 모든 재처리 경로는 `com.mysite.sbb.reprocess` 로거에 이벤트 id, 시도 횟수, 오류 요약을 남겨요.
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : 업무 트랜잭션과 함께 저장
+    PENDING --> PROCESSING : claim
+    PROCESSING --> DONE : 성공
+    PROCESSING --> PENDING : 실패 (지수 백오프) · 멈춤 되살리기
+    PROCESSING --> DEAD : max-retries 도달
+    DEAD --> PENDING : 모니터 '재처리'
+```
+
+### DOC-07 배치 실행 기록과 catch-up
+
+[6장](#6-배치-실행-기록과-복구-catch-up)의 그림과 같아요. 시작 순서만 더해졌어요.
+
+```mermaid
+flowchart LR
+    A["DataInitializer<br/>(@Order 0, 예시 데이터)"] --> B["ChatStartupSync<br/>매장·팀·공지 채널 + 참여자 맞추기 (멱등)"] --> C["ApplicationReady<br/>배치 catch-up"]
+```
+
+### DOC-08 내보내기
+
+지금은 **필수 범위인 동기 내보내기**예요. 비동기 작업 테이블(ISS-16, REL-30)은 선택 항목이라 만들지 않았어요.
+
+```mermaid
+flowchart TD
+    Q["GET /admin/issues/export<br/>formats, board, place, status, category, from, to"] --> A{"ADMIN + bulk-download-enabled?"}
+    A -- 아니오 --> X["거부"]
+    A -- 예 --> F["현재 필터로 이슈 조회"] --> L["반출 로그"]
+    L --> K{"형식"}
+    K -- excel --> E["리스트 .xlsx<br/>상태 이력 · 해결 소요 일"]
+    K -- zip --> Z["{번호}_{제목}/이슈/ · /해결/ 첨부 원본"]
+```
+
+### DOC-09 장애 대응 (추가분)
+
+[8장](#8-장애-대응-표)에 아래를 더해요.
+
+| 실패 지점 | 생길 수 있는 문제 | 막는 장치 | 위치 |
+|---|---|---|---|
+| 응답 전에 네트워크 끊김 → 재전송 | 메시지 두 번 저장 | (room, sender, clientMessageId) unique, 기존 메시지 반환 | `ChatMessageService.send` |
+| 저장 후 브로드캐스트 실패 | 실시간 유실 | Outbox 재시도, DB 에는 메시지가 있음 | `ChatMessageOutboxHandler` |
+| 동시 전송의 커밋 순서 역전 | `afterId` 보정이 메시지를 건너뜀 | 방 행 잠금으로 전송을 줄 세움 | `ChatMessageWriter` |
+| WebSocket 끊김 | 그동안의 메시지 유실 | 자동 재연결 + `afterId` 보정, 안 되면 폴링 | `chat-live.js`, `chat.js` |
+| 같은 브로드캐스트가 두 번 | 화면 중복 | 메시지 id 로 거름 | `chat.js` |
+| 읽음 요청 유실·역순 도착 | 읽음 위치가 뒤로 감 | 더 큰 값으로만 갱신 | `advanceRead` |
+| 첨부 저장 후 DB 롤백 | 고아 파일 | 보상 삭제 | `FileStore` |
+| 대화방에서 빠진 뒤에도 연결 유지 | 계속 메시지 수신 | 커밋 뒤 WebSocket 을 닫고 재구독 때 거부 | `ChatSessionRegistry` |
+| 이슈 이력·알림 저장 실패 | 상태만 바뀜 | 상태·이력·이벤트 한 트랜잭션 | `BoardService.moveTo` |
+| 이슈 상태 동시 변경 | 이력 어긋남 | 행 잠금, `@DynamicUpdate` 로 조회수 갱신이 상태를 덮어쓰지 않음 | `PostRepository.findByIdForUpdate` |
+| 예전 ENUM 컬럼 | 새 상태 저장 실패 | 시작 시 VARCHAR 로 넓히고 데이터 이전 (멱등) | `IssueStatusMigration` |
+
+### DOC-10 도메인 ER (추가분)
+
+```mermaid
+erDiagram
+    MEMBER ||--o{ CHAT_PARTICIPANT : joins
+    CHAT_ROOM ||--o{ CHAT_PARTICIPANT : has
+    CHAT_ROOM ||--o{ CHAT_MESSAGE : contains
+    MEMBER ||--o{ CHAT_MESSAGE : sends
+    CHAT_MESSAGE ||--o{ CHAT_ATTACHMENT : has
+    CHAT_MESSAGE ||--o{ CHAT_MENTION : mentions
+    INQUIRY_TOPIC ||--o{ CHAT_ROOM : "문의 방"
+    INQUIRY_TOPIC }o--o{ MEMBER : "담당자"
+    WORKPLACE |o--o{ CHAT_ROOM : "매장 채널"
+    TEAM |o--o{ CHAT_ROOM : "팀 채널"
+    POST ||--o{ ISSUE_STATUS_HISTORY : "상태 이력"
+
+    CHAT_ROOM {
+        bigint id PK
+        varchar room_type "WORKPLACE TEAM NOTICE INQUIRY GROUP DIRECT"
+        varchar name
+        varchar channel_key UK "W:id T:id NOTICE I:topic:member"
+        varchar direct_key UK "작은id_큰id"
+        varchar inquiry_status "OPEN ANSWERING CLOSED"
+        bigint last_message_id
+        datetime last_message_at
+        boolean archived
+    }
+    CHAT_PARTICIPANT {
+        bigint room_id UK
+        bigint member_id UK
+        bigint last_read_message_id
+        boolean muted
+        boolean left_room
+    }
+    CHAT_MESSAGE {
+        bigint id PK
+        bigint room_id UK
+        bigint sender_id UK
+        varchar client_message_id UK
+        varchar message_type "TEXT FILE SYSTEM"
+        text content
+        datetime created_at
+    }
+    CHAT_ATTACHMENT {
+        bigint message_id FK
+        varchar original_name
+        varchar stored_name "비공개 폴더 상대 경로"
+        bigint size
+        boolean image
+    }
+    INQUIRY_TOPIC {
+        varchar name
+        varchar description
+        varchar icon
+        boolean active
+    }
+    ISSUE_STATUS_HISTORY {
+        bigint post_id FK
+        varchar from_status
+        varchar to_status
+        bigint changed_by_id FK
+        varchar memo
+        datetime changed_at
+    }
+```
+
+### 채팅 보안
+
+| 항목 | 내용 | 위치 |
+|---|---|---|
+| 연결 | `/ws` 는 로그인 세션 필요, 같은 출처만, STOMP CONNECT 에 CSRF 토큰 필수 | `WebSocketConfig`, `WebSocketSecurityConfig` |
+| 구독 | 정해진 주소만, `/topic/rooms/{id}` 는 현재 참여자만 | `ChatSubscriptionInterceptor` |
+| 첨부 | 비공개 폴더 + 컨트롤러 권한 확인, 이미지만 inline, `nosniff` | `ChatApiController.attachment` |
+| 이슈 첨부 | `/board/post/{id}/files/{name}` 로 제공, 팀 전용 글의 `/uploads/**` 직접 주소도 차단 | `BoardController.file`, `UploadAccessInterceptor` |
+| 본문 | 화면은 `textContent` 로만 출력, http(s) 만 자동 링크 | `chat.js` |
+| 관리자 | 1:1 은 건수만, 본문·참여자 화면 없음. Outbox 내용에도 메시지 id 만 | `ChatAdminService`, `ChatMessagePayload` |
+
+여러 서버로 늘릴 때는 내장 브로커를 외부 STOMP 브로커(`enableStompBrokerRelay`)로 바꾸면 돼요 (범위 밖).

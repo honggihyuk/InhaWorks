@@ -14,9 +14,11 @@
         </div>
         <div class="actions">
             <form th:action="@{/admin/monitor/outbox/poll}" method="post" class="inline" data-once>
+                <input type="hidden" name="status" th:value="${status}"><input type="hidden" name="type" th:value="${type}"><input type="hidden" name="outboxPage" th:value="${outboxPage}"><input type="hidden" name="jobPage" th:value="${jobPage}">
                 <button type="submit" class="btn">지금 처리 (PENDING)</button>
             </form>
             <form th:action="@{/admin/monitor/job/catch-up}" method="post" class="inline" data-once>
+                <input type="hidden" name="status" th:value="${status}"><input type="hidden" name="type" th:value="${type}"><input type="hidden" name="outboxPage" th:value="${outboxPage}"><input type="hidden" name="jobPage" th:value="${jobPage}">
                 <button type="submit" class="btn" data-confirm="누락·실패 배치를 지금 복구할까요?"
                         data-confirm-body="최근 며칠 중 빠지거나 실패한 배치를 다시 실행해요. 생성 배치는 멱등이라 중복되지 않아요." data-confirm-ok="복구 실행">누락·실패 배치 복구</button>
             </form>
@@ -26,7 +28,7 @@
     <!-- KPI : PENDING / PROCESSING / 오늘 DONE / DEAD -->
     <section class="grid grid-4" aria-label="Outbox 상태">
         <a class="card kpi" th:each="e : ${counts}" th:with="k=${e.key.name()}"
-           th:href="@{/admin/monitor(status=${k})}"
+           th:href="@{/admin/monitor(status=${k}, type=${type}, jobPage=${jobPage})} + '#outbox'"
            th:style="${k == 'DEAD' and e.value > 0} ? 'border-color:#F3C9C4;background:#FEF3F2' : ''">
             <span class="label" th:text="|${k} · ${k == 'DONE' ? '오늘 완료' : e.key.label}|">PENDING · 대기</span>
             <span class="value" th:classappend="${k == 'DONE'} ? 'blue' : (${k == 'DEAD' and e.value > 0} ? 'red' : '')"
@@ -36,13 +38,18 @@
         </a>
     </section>
 
-    <section class="card flush">
-        <div class="card-head"><h2>Outbox 이벤트</h2>
+    <section class="card flush monitor-section" id="outbox">
+        <div class="card-head"><h2>Outbox 이벤트 <span class="muted small" th:text="|${eventPage.totalElements}건|">0건</span></h2>
             <div class="chips" aria-label="상태로 거르기">
-                <a class="filter-chip" th:href="@{/admin/monitor}" th:classappend="${status == null} ? 'active'">전체 (최근 100)</a>
-                <a class="filter-chip" th:each="s : ${statuses}" th:href="@{/admin/monitor(status=${s})}"
+                <a class="filter-chip" th:href="@{/admin/monitor(type=${type}, jobPage=${jobPage})} + '#outbox'" th:classappend="${status == null} ? 'active'">전체</a>
+                <a class="filter-chip" th:each="s : ${statuses}" th:href="@{/admin/monitor(status=${s}, type=${type}, jobPage=${jobPage})} + '#outbox'"
                    th:classappend="${status == s} ? 'active'" th:text="${s.name()}">PENDING</a>
             </div>
+        </div>
+        <div class="chips" style="padding:10px 22px 0" aria-label="종류로 거르기">
+            <a class="filter-chip" th:href="@{/admin/monitor(status=${status}, jobPage=${jobPage})} + '#outbox'" th:classappend="${type == null} ? 'active'">모든 종류</a>
+            <a class="filter-chip" th:each="t : ${eventTypes}" th:href="@{/admin/monitor(status=${status}, type=${t}, jobPage=${jobPage})} + '#outbox'" th:classappend="${type == t} ? 'active'"
+               th:text="${t == 'CHAT_MESSAGE_CREATED' ? '채팅 전송' : (t == 'NOTIFICATION' ? '알림' : t)}">알림</a>
         </div>
         <div th:if="${#lists.isEmpty(events)}" class="empty-sm" style="padding:18px 22px">이벤트가 없어요.</div>
         <div class="table-box" th:unless="${#lists.isEmpty(events)}" style="margin-top:8px">
@@ -52,7 +59,8 @@
                 <tr th:each="ev : ${events}">
                     <td class="mono" data-label="#" th:text="${ev.id}">1</td>
                     <td class="cell-title">
-                        <b class="small" th:text="${ev.eventType}">NOTIFICATION</b>
+                        <b class="small" th:text="${ev.eventType == 'CHAT_MESSAGE_CREATED' ? '채팅 전송' : (ev.eventType == 'NOTIFICATION' ? '알림' : ev.eventType)}">알림</b>
+                        <span class="sub mono" th:text="${ev.eventType}">NOTIFICATION</span>
                         <span class="sub mono" th:text="|${ev.aggregateType} #${ev.aggregateId}|">TodoAssignment #3</span>
                         <span class="sub mono" th:if="${ev.idempotencyKey != null}" th:text="${ev.idempotencyKey}">key</span>
                     </td>
@@ -64,7 +72,7 @@
                     <td class="right">
                         <form th:unless="${ev.status.name() == 'DONE' or ev.status.name() == 'PROCESSING'}"
                               th:action="@{|/admin/monitor/outbox/${ev.id}/retry|}" method="post" class="inline">
-                            <input type="hidden" name="status" th:value="${status}">
+                            <input type="hidden" name="status" th:value="${status}"><input type="hidden" name="type" th:value="${type}"><input type="hidden" name="outboxPage" th:value="${outboxPage}"><input type="hidden" name="jobPage" th:value="${jobPage}">
                             <button type="submit" class="btn sm" th:classappend="${ev.status.name() == 'DEAD'} ? 'primary'"
                                     th:attr="data-confirm=|이벤트 #${ev.id} 을 재처리할까요?|"
                                     data-confirm-body="PENDING 으로 되돌려 다음 주기에 다시 처리해요. 알림이 한 번 더 갈 수 있어요." data-confirm-ok="재처리">재처리</button>
@@ -74,10 +82,11 @@
                 </tbody>
             </table>
         </div>
+        <nav th:replace="~{:: pager(${eventPage}, 'outbox', '이벤트 페이지')}"></nav>
     </section>
 
-    <section class="card flush">
-        <div class="card-head"><h2>배치 실행 기록</h2>
+    <section class="card flush monitor-section" id="jobs">
+        <div class="card-head"><h2>배치 실행 기록 <span class="muted small" th:text="|${jobPageData.totalElements}건|">0건</span></h2>
             <div class="chips"><span class="chip outline" th:each="e : ${jobCounts}" th:text="|${e.key.label} ${e.value}|">완료 3</span></div>
         </div>
         <div th:if="${#lists.isEmpty(jobs)}" class="empty-sm" style="padding:18px 22px">실행 기록이 없어요.</div>
@@ -95,6 +104,7 @@
                         <span class="sub" style="color:#B42318" th:if="${j.lastError != null}" th:text="${j.lastError}">오류</span></td>
                     <td class="right">
                         <form th:action="@{|/admin/monitor/job/${j.id}/rerun|}" method="post" class="inline">
+                            <input type="hidden" name="status" th:value="${status}"><input type="hidden" name="type" th:value="${type}"><input type="hidden" name="outboxPage" th:value="${outboxPage}"><input type="hidden" name="jobPage" th:value="${jobPage}">
                             <button type="submit" class="btn sm" th:classappend="${j.status.name() == 'FAILED'} ? 'primary' : 'ghost'"
                                     data-confirm="이 배치를 다시 실행할까요?" data-confirm-body="생성 배치는 멱등이라 중복되지 않아요." data-confirm-ok="재실행">재실행</button>
                         </form>
@@ -103,7 +113,27 @@
                 </tbody>
             </table>
         </div>
+        <nav th:replace="~{:: pager(${jobPageData}, 'jobs', '배치 기록 페이지')}"></nav>
     </section>
 </main>
+
+<!-- 페이지 이동 : 한쪽 표를 넘겨도 다른 표의 페이지와 필터는 그대로 -->
+<nav th:fragment="pager(p, target, label)" class="pager" th:if="${p.totalPages > 1}" th:aria-label="${label}"
+     th:with="from=${T(java.lang.Math).max(0, p.number - 2)}, to=${T(java.lang.Math).min(p.totalPages - 1, p.number + 2)}">
+    <th:block th:with="o=${target == 'outbox'}">
+        <a class="pager-item" th:classappend="${p.first} ? 'disabled'" th:attr="aria-disabled=${p.first} ? 'true'" aria-label="첫 페이지"
+           th:href="@{/admin/monitor(status=${status}, type=${type}, outboxPage=${o ? 0 : outboxPage}, jobPage=${o ? jobPage : 0})} + '#' + ${target}">«</a>
+        <a class="pager-item" th:classappend="${p.first} ? 'disabled'" th:attr="aria-disabled=${p.first} ? 'true'" aria-label="이전 페이지"
+           th:href="@{/admin/monitor(status=${status}, type=${type}, outboxPage=${o ? T(java.lang.Math).max(0, p.number - 1) : outboxPage}, jobPage=${o ? jobPage : T(java.lang.Math).max(0, p.number - 1)})} + '#' + ${target}">‹</a>
+        <a class="pager-item" th:each="n : ${#numbers.sequence(from, to)}" th:classappend="${n == p.number} ? 'active'"
+           th:attr="aria-current=${n == p.number} ? 'page',aria-label=|${n + 1} 페이지|" th:text="${n + 1}"
+           th:href="@{/admin/monitor(status=${status}, type=${type}, outboxPage=${o ? n : outboxPage}, jobPage=${o ? jobPage : n})} + '#' + ${target}">1</a>
+        <a class="pager-item" th:classappend="${p.last} ? 'disabled'" th:attr="aria-disabled=${p.last} ? 'true'" aria-label="다음 페이지"
+           th:href="@{/admin/monitor(status=${status}, type=${type}, outboxPage=${o ? T(java.lang.Math).min(p.totalPages - 1, p.number + 1) : outboxPage}, jobPage=${o ? jobPage : T(java.lang.Math).min(p.totalPages - 1, p.number + 1)})} + '#' + ${target}">›</a>
+        <a class="pager-item" th:classappend="${p.last} ? 'disabled'" th:attr="aria-disabled=${p.last} ? 'true'" aria-label="마지막 페이지"
+           th:href="@{/admin/monitor(status=${status}, type=${type}, outboxPage=${o ? p.totalPages - 1 : outboxPage}, jobPage=${o ? jobPage : p.totalPages - 1})} + '#' + ${target}">»</a>
+        <span class="pager-info tnum" th:text="|${p.number + 1} / ${p.totalPages}|">1 / 3</span>
+    </th:block>
+</nav>
 </body>
 </html>

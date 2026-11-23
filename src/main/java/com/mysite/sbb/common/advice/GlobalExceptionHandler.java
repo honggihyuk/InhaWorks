@@ -1,6 +1,7 @@
 package com.mysite.sbb.common.advice;
 
 import com.mysite.sbb.common.exception.BusinessException;
+import com.mysite.sbb.common.exception.NoAccessException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,6 +34,13 @@ import java.util.UUID;
 public class GlobalExceptionHandler {
 
     public static final String REQUEST_ID = "requestId";
+
+    // 볼 권한이 없는 링크 : 내용은 보여 주지 않고 안내 화면만 (ISS-21)
+    @ExceptionHandler(NoAccessException.class)
+    public String noAccess(NoAccessException e, HttpServletResponse res, Model model) {
+        log.info("=======> 접근 거부 : {}", e.getMessage());
+        return view(res, model, HttpStatus.FORBIDDEN, e.getMessage(), null);
+    }
 
     // 업무 규칙 위반 (사용자가 고칠 수 있는 오류) : 메시지를 그대로 보여 준다
     @ExceptionHandler({BusinessException.class, IllegalArgumentException.class})
@@ -69,7 +77,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public String tooLarge(MaxUploadSizeExceededException e, HttpServletResponse res, Model model) {
-        return view(res, model, HttpStatus.PAYLOAD_TOO_LARGE, "파일이 너무 커요. 파일 하나는 10MB, 한 번에 60MB 까지 올릴 수 있어요.", null);
+        return view(res, model, HttpStatus.PAYLOAD_TOO_LARGE, "파일이 너무 커요. 파일 하나는 10MB(채팅 첨부는 20MB), 한 번에 60MB(채팅은 10개)까지 올릴 수 있어요.", null);
     }
 
     @ExceptionHandler(MultipartException.class)

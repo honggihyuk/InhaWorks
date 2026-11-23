@@ -11,6 +11,13 @@ import com.mysite.sbb.board.dto.PostForm;
 import com.mysite.sbb.board.entity.Board;
 import com.mysite.sbb.board.entity.Post;
 import com.mysite.sbb.board.repository.BoardRepository;
+import com.mysite.sbb.board.repository.IssueStatusHistoryRepository;
+import com.mysite.sbb.chat.dto.ChatMessageForm;
+import com.mysite.sbb.chat.entity.ChatRoom;
+import com.mysite.sbb.chat.repository.ChatMessageRepository;
+import com.mysite.sbb.chat.repository.ChatRoomRepository;
+import com.mysite.sbb.chat.service.ChatMessageWriter;
+import com.mysite.sbb.chat.service.ChatSyncService;
 import com.mysite.sbb.board.repository.PostRepository;
 import com.mysite.sbb.board.service.BoardService;
 import com.mysite.sbb.common.exception.BusinessException;
@@ -82,11 +89,15 @@ class RollbackVerificationTest {
     @Autowired AttendanceRepository attendanceRepository;
     @Autowired WorkScheduleRepository workScheduleRepository;
     @Autowired WorkPolicyService workPolicyService;
-    @Autowired OutboxEventRepository outboxEventRepository;
+    @MockitoSpyBean OutboxEventRepository outboxEventRepository;
     @Autowired FileStore fileStore;
     @Autowired TodoAssignmentGenerator generator;
     @Autowired TodoTaskRepository todoTaskRepository;
     @MockitoSpyBean TodoAssignmentRepository todoAssignmentRepository;
+    @MockitoSpyBean IssueStatusHistoryRepository issueHistoryRepository;
+    @Autowired ChatRoomRepository chatRoomRepository;
+    @Autowired ChatMessageRepository chatMessageRepository;
+    @Autowired ChatMessageWriter chatMessageWriter;
 
     Member admin, emp;
 
@@ -149,7 +160,7 @@ class RollbackVerificationTest {
                 .isInstanceOf(IllegalArgumentException.class);
 
         Post after = postRepository.findById(post.getId()).orElseThrow();
-        assertThat(after.getIssueStatus()).isEqualTo(IssueStatus.OPEN);
+        assertThat(after.getIssueStatus()).isEqualTo(IssueStatus.REPORTED);
         assertThat(after.getResolution()).isNull();
         assertThat(after.getResolvedBy()).isNull();
         assertThat(count(PUBLIC)).isEqualTo(files);
@@ -166,7 +177,7 @@ class RollbackVerificationTest {
 
         boardService.reopenIssue(post.getId(), admin);
         assertThat(count(PUBLIC)).isEqualTo(files);
-        assertThat(postRepository.findById(post.getId()).orElseThrow().getIssueStatus()).isEqualTo(IssueStatus.OPEN);
+        assertThat(postRepository.findById(post.getId()).orElseThrow().getIssueStatus()).isEqualTo(IssueStatus.REVIEWING);
     }
 
     // ---------- DB + Outbox ----------
@@ -204,6 +215,64 @@ class RollbackVerificationTest {
         assertThatThrownBy(() -> workPolicyService.delete(policyId)).isInstanceOf(BusinessException.class);
         Integer after = tx.execute(s -> workPolicyService.getPolicy(policyId).getShiftTypes().size());
         assertThat(after).isEqualTo(shifts);
+    }
+
+    // ---------- 채팅 · 이슈 상태 (REL-40, REL-52) ----------
+
+    @Test
+    @DisplayName("⑪ 채팅 전송 중 예외 → 메시지·첨부 행 없음, Outbox 없음, 저장된 파일 지워짐, 방 요약 그대로")
+    void chatSendRollsBackEverything() throws IOException {
+        ChatRoom room = chatRoomRepository.findByChannelKey(ChatSyncService.NOTICE_KEY).orElseThrow();
+        Long roomId = room.getId();
+        Long lastBefore = room.getLastMessageId();
+        long files = count(PRIVATE), outbox = outboxEventRepository.count(), messages = chatMessageRepository.count();
+        ChatMessageForm form = new ChatMessageForm();
+        form.setClientMessageId("rollback-" + System.nanoTime());
+        form.setContent("롤백될 메시지");
+
+        assertThatThrownBy(() -> tx.executeWithoutResult(s -> {
+            chatMessageWriter.write(roomId, admin.getId(), form, List.of(pdf("채팅첨부.pdf")));
+            throw new IllegalStateException("저장 직후 장애 (주입)");
+        })).isInstanceOf(IllegalStateException.class);
+
+        assertThat(chatMessageRepository.count()).isEqualTo(messages);
+        assertThat(outboxEventRepository.count()).isEqualTo(outbox);
+        assertThat(count(PRIVATE)).isEqualTo(files);
+        assertThat(chatRoomRepository.findById(roomId).orElseThrow().getLastMessageId()).isEqualTo(lastBefore);
+    }
+
+    @Test
+    @DisplayName("⑫ 이슈 상태 변경 중 이력 저장 실패 → 상태·이력·알림 이벤트 모두 롤백 (AC-14)")
+    void issueStatusHistoryFailureRollsBack() {
+        Post post = issue();
+        long history = issueHistoryRepository.count();
+        long outbox = outboxEventRepository.count();
+        doThrow(new IllegalStateException("이력 저장 장애 (주입)")).when(issueHistoryRepository).save(any());
+        try {
+            assertThatThrownBy(() -> boardService.changeStatus(post.getId(), admin, IssueStatus.REVIEWING, "검토", null))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally {
+            org.mockito.Mockito.reset(issueHistoryRepository);
+        }
+        assertThat(postRepository.findById(post.getId()).orElseThrow().getIssueStatus()).isEqualTo(IssueStatus.REPORTED);
+        assertThat(issueHistoryRepository.count()).isEqualTo(history);
+        assertThat(outboxEventRepository.count()).isEqualTo(outbox);
+    }
+
+    @Test
+    @DisplayName("⑬ 이슈 상태 변경 뒤 알림 이벤트 저장 실패 → 상태·이력도 롤백")
+    void issueStatusOutboxFailureRollsBack() {
+        Post post = issue();
+        long history = issueHistoryRepository.count();
+        doThrow(new IllegalStateException("Outbox 장애 (주입)")).when(outboxEventRepository).save(any());
+        try {
+            assertThatThrownBy(() -> boardService.changeStatus(post.getId(), admin, IssueStatus.REVIEWING, null, null))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally {
+            org.mockito.Mockito.reset(outboxEventRepository);
+        }
+        assertThat(postRepository.findById(post.getId()).orElseThrow().getIssueStatus()).isEqualTo(IssueStatus.REPORTED);
+        assertThat(issueHistoryRepository.count()).isEqualTo(history);
     }
 
     // ---------- 동시성 ----------

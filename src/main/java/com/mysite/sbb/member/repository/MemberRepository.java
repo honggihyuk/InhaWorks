@@ -2,6 +2,7 @@ package com.mysite.sbb.member.repository;
 
 import com.mysite.sbb.member.entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.Collection;
 import java.util.List;
@@ -25,6 +26,11 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     // @멘션 : 아이디로 찾기
     List<Member> findByUsernameIn(Collection<String> usernames);
+
+    // 채팅 상대 고르기 : 소속·근무제까지 한 번에 읽는다
+    @Query("select m from Member m left join fetch m.team left join fetch m.workplace left join fetch m.workPolicy "
+            + "where m.active = true order by m.name asc")
+    List<Member> findActiveWithOrg();
 
     long countByTeamId(Long teamId);
 

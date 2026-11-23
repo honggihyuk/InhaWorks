@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<nav th:fragment="tabs(active)" class="segmented" aria-label="채팅 관리">
+    <a th:href="@{/admin/chat}" th:classappend="${active == 'channels'} ? 'active'">채널 현황</a>
+    <a th:href="@{/admin/chat/inquiries}" th:classappend="${active == 'inquiries'} ? 'active'">문의함</a>
+    <a th:href="@{/admin/chat/topics}" th:classappend="${active == 'topics'} ? 'active'">문의 주제</a>
+    <a th:href="@{/chat}">내 채팅 열기</a>
+</nav>
+</html>

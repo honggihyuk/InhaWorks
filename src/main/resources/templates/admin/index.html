@@ -28,6 +28,8 @@
                 <tbody>
                 <tr th:each="m : ${memberList}" th:classappend="${m.active} ? '' : 'dim'">
                     <td><a class="person" th:href="@{|/admin/members/${m.id}|}" title="직원 정보 · 근태 · 업무 · 서류"><span th:replace="~{fragments/ui :: avatar(${m}, 'sm')}"></span><span th:text="${m.displayName}">홍기혁</span></a>
+                        <span th:replace="~{fragments/ui :: policyChip(${m})}"></span>
+                        <button type="button" class="btn sm ghost" th:attr="data-member-card=${m.id}" th:aria-label="|${m.displayName} 프로필 카드|">카드</button>
                         <a th:if="${missingDocs != null and missingDocs[m.id] != null and missingDocs[m.id] > 0}" class="chip red" style="margin-left:4px"
                            th:href="@{|/admin/members/${m.id}|(tab='docs')}" th:text="|필수 서류 ${missingDocs[m.id]}|" title="미제출 필수 서류">필수 서류 1</a>
                         <span class="chip grey" th:unless="${m.active}">퇴사</span></td>

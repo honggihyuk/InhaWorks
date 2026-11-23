@@ -33,9 +33,13 @@ public class FileStore {
     private static final Set<String> DOCUMENTS = Set.of("jpg", "jpeg", "png", "gif", "webp",
             "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "hwp", "hwpx", "txt", "csv", "zip");
     private static final String PNG_PREFIX = "data:image/png;base64,";
+    private static final long MAX_FILE_BYTES = 10L * 1024 * 1024;   // 일반 첨부 10MB (채팅만 app.chat.max-file-mb)
 
     private final Path uploadDir;
     private final Path privateDir;          // 인사 서류처럼 공개 주소(/uploads/**)로 열면 안 되는 파일 : 권한 검사 후 컨트롤러가 내려준다
+
+    @Value("${app.chat.max-file-mb:20}")
+    private long chatMaxFileMb = 20;
 
     public FileStore(@Value("${app.upload-dir:uploads}") String uploadDir,
                      @Value("${app.private-dir:private-uploads}") String privateDir) {
@@ -50,6 +54,19 @@ public class FileStore {
 
     // 이미지·문서를 비공개 폴더에 저장. path 는 "hr/uuid.pdf" 처럼 비공개 폴더 기준 상대 경로 (웹 주소 아님)
     public FileRef storePrivate(MultipartFile file, String folder) {
+        if (file != null && file.getSize() > MAX_FILE_BYTES) throw new IllegalArgumentException("파일이 너무 커요. 파일 하나는 10MB 까지 올릴 수 있어요.");
+        return writePrivate(file, folder);
+    }
+
+    // 채팅 첨부 : 비공개 폴더, 파일 하나 app.chat.max-file-mb (기본 20MB)
+    public FileRef storeChatFile(MultipartFile file) {
+        if (file != null && file.getSize() > chatMaxFileMb * 1024 * 1024) {
+            throw new IllegalArgumentException("파일이 너무 커요. 채팅 첨부는 파일 하나 " + chatMaxFileMb + "MB 까지예요.");
+        }
+        return writePrivate(file, "chat");
+    }
+
+    private FileRef writePrivate(MultipartFile file, String folder) {
         if (file == null || file.isEmpty()) return null;
         String original = cleanName(file.getOriginalFilename());
         String ext = original.contains(".") ? original.substring(original.lastIndexOf('.') + 1).toLowerCase() : "";
@@ -179,6 +196,9 @@ public class FileStore {
     private FileRef save(MultipartFile file, Set<String> allowed, String errorMessage) {
         if (file == null || file.isEmpty()) {
             return null;
+        }
+        if (file.getSize() > MAX_FILE_BYTES) {
+            throw new IllegalArgumentException("파일이 너무 커요. 파일 하나는 10MB 까지 올릴 수 있어요.");
         }
         String original = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
         original = original.substring(Math.max(original.lastIndexOf('/'), original.lastIndexOf('\\')) + 1);

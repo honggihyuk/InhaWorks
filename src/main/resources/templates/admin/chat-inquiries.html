@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>문의함</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>관리자</span><span class="sep">›</span><a th:href="@{/admin/chat}">채팅</a><span class="sep">›</span><b>문의함</b></nav>
+
+<main layout:fragment="content" class="content">
+    <div class="page-header"><div>
+        <h1 class="page-title">문의함</h1>
+        <p class="page-sub">담당자가 답하면 ‘답변 중’, 직원이 다시 쓰면 ‘미답변’으로 돌아와요</p>
+    </div></div>
+    <div th:replace="~{admin/chat-tabs :: tabs('inquiries')}"></div>
+
+    <div class="chips" role="group" aria-label="주제로 거르기">
+        <a class="filter-chip" th:href="@{/admin/chat/inquiries(status=${status})}" th:classappend="${topic == null} ? 'active'">전체 주제</a>
+        <a class="filter-chip" th:each="t : ${topics}" th:href="@{/admin/chat/inquiries(topic=${t.id}, status=${status})}"
+           th:classappend="${topic == t.id} ? 'active'" th:text="${t.name}">인사 문의</a>
+    </div>
+    <nav class="segmented" aria-label="상태">
+        <a th:href="@{/admin/chat/inquiries(topic=${topic})}" th:classappend="${status == null} ? 'active'">전체</a>
+        <a th:each="s : ${statuses}" th:href="@{/admin/chat/inquiries(topic=${topic}, status=${s})}"
+           th:classappend="${status == s} ? 'active'" th:text="${s.label}">미답변</a>
+    </nav>
+
+    <section class="card flush">
+        <div th:if="${#lists.isEmpty(inquiries)}" class="empty"><b>문의가 없어요</b><span>조건을 바꿔 보세요</span></div>
+        <div class="table-box" th:unless="${#lists.isEmpty(inquiries)}">
+            <table class="t">
+                <thead><tr><th>직원</th><th>주제</th><th>상태</th><th>마지막 메시지</th><th>마지막 문의</th><th class="right"></th></tr></thead>
+                <tbody>
+                <tr th:each="i : ${inquiries}">
+                    <td class="cell-title"><b th:text="${i.memberName}">이서연</b></td>
+                    <td th:text="${i.topic}">인사 문의</td>
+                    <td><span class="chip" th:classappend="${i.status == 'OPEN'} ? 'red' : (${i.status == 'ANSWERING'} ? 'blue' : 'grey')" th:text="${i.statusLabel}">미답변</span></td>
+                    <td class="muted" style="max-width:320px" th:text="${i.preview != null ? i.preview : '-'}">문의 내용</td>
+                    <td class="tnum muted" th:text="${i.lastAt != null ? #temporals.format(i.lastAt, 'M.d HH:mm') : '-'}">11.23 10:20</td>
+                    <td class="right nowrap">
+                        <form th:action="@{|/admin/chat/inquiries/${i.id}/open|}" method="post" class="inline"><button type="submit" class="btn sm primary">열기</button></form>
+                        <form th:if="${i.status != 'CLOSED'}" th:action="@{|/admin/chat/inquiries/${i.id}/close|}" method="post" class="inline">
+                            <button type="submit" class="btn sm" data-confirm="이 문의를 종료할까요?" data-confirm-body="직원이 다시 쓰면 미답변으로 돌아와요." data-confirm-ok="종료">종료</button></form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

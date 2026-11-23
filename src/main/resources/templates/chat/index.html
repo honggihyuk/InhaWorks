@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layouts/layout}">
+<head><title>채팅</title></head>
+<body>
+<nav layout:fragment="crumbs" class="crumbs" aria-label="현재 위치"><span>InhaWorks</span><span class="sep">›</span><a th:href="@{/chat}">채팅</a>
+    <th:block th:if="${room != null}"><span class="sep">›</span><b th:text="${room.name}">대화방</b></th:block></nav>
+
+<main layout:fragment="content" class="content chat-content">
+    <div class="chat-shell" th:classappend="${room != null} ? 'has-room'" data-chat
+         th:attr="data-me=${loginMember.id},data-room=${room?.id},data-base=@{/}">
+
+        <!-- 왼쪽 : 대화방 목록 -->
+        <aside class="chat-side" aria-label="대화방 목록">
+            <div class="chat-side-head">
+                <h1>채팅</h1>
+                <div class="row" style="gap:6px">
+                    <a class="btn sm" th:href="@{/chat/inquiry}">관리자와 채팅하기</a>
+                    <button type="button" class="btn sm primary" data-new-chat>새 대화</button>
+                </div>
+            </div>
+            <label class="sr-only" for="chat-search">대화방 이름으로 검색</label>
+            <input id="chat-search" class="input chat-search" type="search" placeholder="대화방 이름 검색" autocomplete="off" th:value="${q}" data-room-search>
+            <div th:replace="~{chat/fragments :: roomList}"></div>
+        </aside>
+
+        <!-- 오른쪽 : 대화창 -->
+        <section class="chat-main" aria-label="대화창">
+            <div class="chat-empty" th:if="${room == null}"><b>대화방을 골라 주세요</b><span>왼쪽 목록에서 고르거나 새 대화를 시작해요</span></div>
+
+            <th:block th:if="${room != null}">
+                <header class="chat-head">
+                    <a class="icon-btn chat-back" th:href="@{/chat}" aria-label="대화방 목록으로">‹</a>
+                    <div class="chat-title">
+                        <b th:text="${room.name}">인하점</b>
+                        <small><th:block th:text="${room.inquiryLabel != null ? '문의 · ' + room.inquiryLabel : room.typeLabel}">매장 채널</th:block>
+                            · <span data-member-count th:text="|${#lists.size(room.participants)}명|">12명</span></small>
+                    </div>
+                    <span class="chat-conn" data-conn hidden>연결 중…</span>
+                    <form th:if="${room.canCloseInquiry}" th:action="@{|/chat/rooms/${room.id}/inquiry/close|}" method="post" class="inline">
+                        <button type="submit" class="btn sm" data-confirm="이 문의를 종료할까요?" data-confirm-body="직원이 다시 쓰면 미답변으로 돌아와요." data-confirm-ok="종료">문의 종료</button>
+                    </form>
+                </header>
+
+                <div class="chat-log" data-log role="log" aria-live="polite" aria-label="메시지" tabindex="0">
+                    <button type="button" class="btn sm ghost chat-more" data-more hidden>이전 메시지 더 보기</button>
+                    <div class="empty-sm" data-log-empty hidden style="text-align:center">첫 메시지를 보내 보세요.</div>
+                </div>
+
+                <form class="chat-compose" data-compose th:if="${room.canWrite}" autocomplete="off">
+                    <div class="chat-files" data-file-list hidden></div>
+                    <div class="chat-mentions" data-mention-box role="listbox" aria-label="멘션할 사람" hidden></div>
+                    <div class="chat-compose-row">
+                        <label class="icon-btn chat-attach" title="파일 첨부" aria-label="파일 첨부">＋
+                            <input type="file" multiple data-file-input hidden
+                                   accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp,.hwpx,.txt,.csv,.zip"></label>
+                        <label class="sr-only" for="chat-text">메시지</label>
+                        <textarea id="chat-text" class="textarea" rows="1" maxlength="2000" data-text
+                                  placeholder="메시지 입력 (Enter 전송, Shift+Enter 줄바꿈, @ 멘션)"></textarea>
+                        <button type="submit" class="btn primary" data-send>전송</button>
+                    </div>
+                </form>
+                <div class="chat-readonly" th:unless="${room.canWrite}"
+                     th:text="${room.type == 'NOTICE'} ? '전체 공지는 관리자만 쓸 수 있어요.' : '퇴사한 직원에게는 메시지를 보낼 수 없어요.'">읽기 전용</div>
+            </th:block>
+        </section>
+    </div>
+
+    <!-- 새 대화 : 직원 고르기 (한 명 = 1:1, 여러 명 = 그룹) -->
+    <template data-new-chat-tpl>
+        <div class="stack" style="gap:12px">
+            <h3 id="iw-newchat-title">새 대화</h3>
+            <input class="input" type="search" placeholder="이름·소속 검색" aria-label="직원 검색" data-people-search>
+            <div class="chat-people" data-people>
+                <label class="chat-person" th:each="p : ${people}" th:attr="data-search=|${p.displayName} ${p.subtitle}|">
+                    <input type="checkbox" th:value="${p.id}">
+                    <span th:replace="~{fragments/ui :: avatar(${p}, 'sm')}"></span>
+                    <span class="chat-person-text"><b th:text="${p.displayName}">이름</b><small th:text="${p.subtitle}">소속</small></span>
+                    <span th:replace="~{fragments/ui :: policyChip(${p})}"></span>
+                </label>
+            </div>
+            <input class="input" maxlength="80" placeholder="그룹 이름 (여러 명일 때, 선택)" aria-label="그룹 이름" data-group-name>
+            <div class="modal-actions"><button type="button" class="btn" data-close>취소</button>
+                <button type="button" class="btn primary" data-start disabled>대화 시작</button></div>
+        </div>
+    </template>
+    <form id="chat-direct-form" method="post" hidden th:action="@{/chat/direct/0}"></form>
+    <form id="chat-group-form" method="post" hidden th:action="@{/chat/group}"></form>
+</main>
+
+<th:block layout:fragment="script"><script th:src="@{/js/chat.js}"></script></th:block>
+</body>
+</html>

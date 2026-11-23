@@ -5,6 +5,7 @@ import com.mysite.sbb.hr.service.HrHistoryService;
 import com.mysite.sbb.attendance.entity.WorkPolicy;
 import com.mysite.sbb.attendance.service.WorkPolicyService;
 import com.mysite.sbb.admin.dto.AdminMemberDto;
+import com.mysite.sbb.chat.service.ChatSyncService;
 import com.mysite.sbb.member.entity.Member;
 import com.mysite.sbb.member.repository.MemberRepository;
 import com.mysite.sbb.member.service.MemberService;
@@ -28,6 +29,7 @@ public class AdminMemberService {
     private final OrganizationService organizationService;
     private final WorkPolicyService workPolicyService;
     private final HrHistoryService historyService;
+    private final ChatSyncService chatSyncService;
 
     @Transactional(readOnly = true)
     public Member getMember(Long id) {
@@ -56,7 +58,9 @@ public class AdminMemberService {
                 .created(LocalDateTime.now())
                 .build();
         copy(dto, member);
-        return memberRepository.save(member);
+        Member saved = memberRepository.save(member);
+        chatSyncService.syncMember(saved);      // 공지·매장·팀 채널 자동 참여
+        return saved;
     }
 
     public void update(Long id, AdminMemberDto dto) {
@@ -66,6 +70,7 @@ public class AdminMemberService {
         if (dto.getPassword() != null && !dto.getPassword().isBlank()) {
             member.setPassword(passwordEncoder.encode(dto.getPassword()));
         }
+        chatSyncService.syncMember(member);     // 소속 변경·퇴사 반영
     }
 
     // 목록에서 바로 권한 바꾸기
@@ -128,5 +133,6 @@ public class AdminMemberService {
         Member member = getMember(id);
         historyService.record(member, HistoryField.STATUS, member.isActive() ? "재직" : "퇴사", member.isActive() ? "퇴사" : "재직");
         member.setActive(!member.isActive());
+        chatSyncService.syncMember(member);     // 퇴사 : 모든 대화방에서 빠짐 / 복직 : 공지·매장·팀 채널로
     }
 }

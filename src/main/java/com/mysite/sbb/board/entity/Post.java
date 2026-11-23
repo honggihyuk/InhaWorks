@@ -7,6 +7,9 @@ import com.mysite.sbb.common.entity.FileRef;
 import com.mysite.sbb.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -15,6 +18,7 @@ import java.util.List;
 // 게시글. 이슈&해결 게시판이면 issueStatus / 분류 / 지점 / 해결(내용·첨부·해결자·시각)을 쓴다
 @Entity
 @Table(indexes = @Index(name = "idx_post_board", columnList = "board_id, pinned"))
+@DynamicUpdate      // 바뀐 칸만 UPDATE : 조회수 +1 이 동시에 바뀐 이슈 상태를 예전 값으로 덮어쓰지 않게
 @Getter
 @Setter
 @NoArgsConstructor
@@ -40,7 +44,9 @@ public class Post {
 
     private boolean pinned;                 // 상단 고정 공지 (관리자)
 
+    // VARCHAR 로 고정 : MySQL 기본 매핑(ENUM)이면 단계를 늘릴 때 저장이 실패한다 (IssueStatusMigration 참고)
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(length = 20)
     private IssueStatus issueStatus;
 
@@ -61,12 +67,14 @@ public class Post {
 
     @Builder.Default
     @ElementCollection
-    @CollectionTable(name = "post_resolution_file", joinColumns = @JoinColumn(name = "post_id"))
+    @CollectionTable(name = "post_resolution_file", joinColumns = @JoinColumn(name = "post_id"),
+            indexes = @Index(name = "idx_post_resolution_file_path", columnList = "path"))
     private List<FileRef> resolutionFiles = new ArrayList<>();
 
     @Builder.Default
     @ElementCollection
-    @CollectionTable(name = "post_file", joinColumns = @JoinColumn(name = "post_id"))
+    @CollectionTable(name = "post_file", joinColumns = @JoinColumn(name = "post_id"),
+            indexes = @Index(name = "idx_post_file_path", columnList = "path"))
     private List<FileRef> files = new ArrayList<>();
 
     private int viewCount;

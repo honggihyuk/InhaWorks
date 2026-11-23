@@ -11,6 +11,9 @@
     <title layout:title-pattern="$CONTENT_TITLE · InhaWorks">InhaWorks</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/images/favicon.svg}">
     <link rel="stylesheet" th:href="@{/css/app.css}">
+    <!-- 채팅(fetch · STOMP)에서 쓰는 CSRF 토큰과 기준 주소 -->
+    <meta name="iw-base" th:content="@{/}">
+    <th:block th:if="${_csrf != null}"><meta name="_csrf" th:content="${_csrf.token}"><meta name="_csrf_header" th:content="${_csrf.headerName}"></th:block>
     <th:block layout:fragment="css"></th:block>
 </head>
 <!-- 공통 레이아웃 : 왼쪽 사이드바 + 반투명 상단바(브레드크럼) + 본문
@@ -38,6 +41,9 @@
                     <span class="badge" th:if="${navInbox != null and navInbox > 0}" th:text="${navInbox}">1</span></a>
                 <a class="nav-item" th:href="@{/board}" th:classappend="${#strings.startsWith(u, '/board') or #strings.startsWith(u, '/admin/board')} ? 'active'">
                     <th:block th:replace="~{fragments/ui :: icon('board')}"/>게시판</a>
+                <a class="nav-item" th:href="@{/chat}" th:classappend="${#strings.startsWith(u, '/chat')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('chat')}"/>채팅
+                    <span class="badge" data-chat-unread th:hidden="${navChatUnread == null or navChatUnread == 0}" th:text="${navChatUnread != null and navChatUnread > 99 ? '99+' : navChatUnread}">0</span></a>
             </div>
             <div class="nav-group">
                 <div class="nav-label">근태</div>
@@ -54,6 +60,8 @@
             </div>
             <div class="nav-group">
                 <div class="nav-label">관리</div>
+                <a class="nav-item" th:href="@{/admin/chat}" th:classappend="${#strings.startsWith(u, '/admin/chat')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('inbox')}"/>채팅 관리</a>
                 <a class="nav-item" th:href="@{/admin/monitor}" th:classappend="${#strings.startsWith(u, '/admin/monitor')} ? 'active'">
                     <th:block th:replace="~{fragments/ui :: icon('pulse')}"/>재처리 모니터
                     <span class="badge red" th:if="${navDead != null and navDead > 0}" th:text="|DEAD ${navDead}|">DEAD 1</span></a>
@@ -77,6 +85,9 @@
                     <span class="badge" th:if="${navInbox != null and navInbox > 0}" th:text="${navInbox}" title="결재 대기">1</span></a>
                 <a class="nav-item" th:href="@{/board}" th:classappend="${#strings.startsWith(u, '/board')} ? 'active'">
                     <th:block th:replace="~{fragments/ui :: icon('board')}"/>게시판</a>
+                <a class="nav-item" th:href="@{/chat}" th:classappend="${#strings.startsWith(u, '/chat')} ? 'active'">
+                    <th:block th:replace="~{fragments/ui :: icon('chat')}"/>채팅
+                    <span class="badge" data-chat-unread th:hidden="${navChatUnread == null or navChatUnread == 0}" th:text="${navChatUnread != null and navChatUnread > 99 ? '99+' : navChatUnread}">0</span></a>
                 <a class="nav-item" th:href="@{/attendance}" th:classappend="${#strings.startsWith(u, '/attendance')} ? 'active'">
                     <th:block th:replace="~{fragments/ui :: icon('clock')}"/>출퇴근</a>
                 <a class="nav-item" th:href="@{/schedule}" th:classappend="${#strings.startsWith(u, '/schedule')} ? 'active'">
@@ -140,6 +151,7 @@
 <template data-toast="error" th:if="${errorMessage}" th:text="${errorMessage}"></template>
 
 <script th:src="@{/js/app.js}"></script>
+<script th:if="${loginMember != null}" th:src="@{/js/chat-live.js}"></script>
 <th:block layout:fragment="script"></th:block>
 </body>
 </html>

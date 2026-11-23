@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{layouts/layout}">
 <head><title th:text="${board.name}">게시판</title></head>
@@ -21,22 +22,22 @@
     <!-- 이슈 & 해결 : 지점 칩 → 통계 2장(처리 대기 · 해결 완료) → 상태·분류 필터 → 카드 목록 -->
     <th:block th:if="${board.issueBoard}">
         <div class="chips place-chips" role="group" aria-label="지점으로 거르기">
-            <a class="filter-chip" th:href="@{|/board/${board.id}|(status=${status}, category=${category})}" th:classappend="${place == null} ? 'active'"
+            <a class="filter-chip" th:href="@{|/board/${board.id}|(status=${status}, category=${category}, from=${from}, to=${to})}" th:classappend="${place == null} ? 'active'"
                th:attr="aria-current=${place == null} ? 'true'">전체 지점</a>
-            <a class="filter-chip" th:each="w : ${workplaces}" th:href="@{|/board/${board.id}|(place=${w.id}, status=${status}, category=${category})}"
+            <a class="filter-chip" th:each="w : ${workplaces}" th:href="@{|/board/${board.id}|(place=${w.id}, status=${status}, category=${category}, from=${from}, to=${to})}"
                th:classappend="${place == w.id} ? 'active'" th:attr="aria-current=${place == w.id} ? 'true'" th:text="${w.name}">강남점</a>
         </div>
 
         <section class="issue-stats" aria-label="이슈 현황">
-            <a class="istat pending" th:href="@{|/board/${board.id}|(status='OPEN', place=${place}, category=${category})}">
+            <a class="istat pending" th:href="@{|/board/${board.id}|(status='PENDING', place=${place}, category=${category}, from=${from}, to=${to})}">
                 <div class="istat-main"><span class="istat-label"><i aria-hidden="true">…</i>처리 대기 중</span>
                     <b class="tnum"><th:block th:text="${summary.pending()}">84</th:block><small>건</small></b>
-                    <span class="faint small" th:if="${summary.inProgress() > 0}" th:text="|처리 중 ${summary.inProgress()}건 포함|"></span></div>
+                    <span class="faint small">해결 완료 외 전체 단계<th:block th:if="${summary.inProgress() > 0}" th:text="| · 처리 중 ${summary.inProgress()}건|"></th:block></span></div>
                 <div class="istat-sub"><span class="istat-cap">미해결 기간</span>
                     <div class="istat-pair"><div><span class="chip red">평균</span><b class="tnum"><th:block th:text="${summary.pendingAvg()}">9.2</th:block><small>일</small></b></div>
                         <div><span class="chip red">최장</span><b class="tnum"><th:block th:text="${summary.pendingMax()}">14</th:block><small>일</small></b></div></div></div>
             </a>
-            <a class="istat done" th:href="@{|/board/${board.id}|(status='RESOLVED', place=${place}, category=${category})}">
+            <a class="istat done" th:href="@{|/board/${board.id}|(status='RESOLVED', place=${place}, category=${category}, from=${from}, to=${to})}">
                 <div class="istat-main"><span class="istat-label"><i aria-hidden="true">✓</i>해결 완료</span>
                     <b class="tnum"><th:block th:text="${summary.resolved()}">84</th:block><small>건</small></b>
                     <span class="faint small" th:text="|해결률 ${summary.resolvedRate()}%|">해결률 50%</span></div>
@@ -46,25 +47,40 @@
             </a>
         </section>
 
-        <div class="row" style="justify-content:space-between">
+        <div class="issue-filter">
             <nav class="segmented" aria-label="상태">
-                <a th:href="@{|/board/${board.id}|(place=${place}, category=${category})}" th:classappend="${status == null} ? 'active'">전체</a>
-                <a th:href="@{|/board/${board.id}|(status='OPEN', place=${place}, category=${category})}" th:classappend="${status != null and status.name() == 'OPEN'} ? 'active'">처리 대기</a>
-                <a th:href="@{|/board/${board.id}|(status='RESOLVED', place=${place}, category=${category})}" th:classappend="${status != null and status.name() == 'RESOLVED'} ? 'active'">해결 완료</a>
+                <a th:href="@{|/board/${board.id}|(place=${place}, category=${category}, from=${from}, to=${to})}" th:classappend="${status == null} ? 'active'">전체</a>
+                <a th:href="@{|/board/${board.id}|(status='PENDING', place=${place}, category=${category}, from=${from}, to=${to})}" th:classappend="${status == 'PENDING'} ? 'active'">처리 대기 전체</a>
+                <a th:each="s : ${issueStatuses}" th:href="@{|/board/${board.id}|(status=${s.name()}, place=${place}, category=${category}, from=${from}, to=${to})}"
+                   th:classappend="${status == s.name()} ? 'active'" th:text="${s.label}">검토 중</a>
             </nav>
-            <form th:action="@{|/board/${board.id}|}" method="get" class="row" style="gap:6px">
+            <form th:action="@{|/board/${board.id}|}" method="get" class="row" style="gap:6px;flex-wrap:wrap">
                 <input type="hidden" name="place" th:value="${place}"><input type="hidden" name="status" th:value="${status}">
                 <label class="sr-only" for="icat">분류</label>
-                <select id="icat" name="category" class="select" style="min-height:34px;padding:4px 10px" onchange="this.form.submit()">
+                <select id="icat" name="category" class="select" style="min-height:34px;padding:4px 10px;width:auto" onchange="this.form.submit()">
                     <option value="">모든 분류</option>
                     <option th:each="c : ${categories}" th:value="${c}" th:selected="${category == c}" th:text="${c.label}">재고</option>
                 </select>
+                <label class="sr-only" for="ifrom">등록일 시작</label>
+                <input id="ifrom" type="date" name="from" class="input" style="min-height:34px;padding:4px 8px;width:auto" th:value="${from}" onchange="this.form.submit()">
+                <span class="faint">~</span>
+                <label class="sr-only" for="ito">등록일 끝</label>
+                <input id="ito" type="date" name="to" class="input" style="min-height:34px;padding:4px 8px;width:auto" th:value="${to}" onchange="this.form.submit()">
+                <!-- 내보내기 : 지금 필터 그대로, 관리자 + 일괄 다운로드 스위치 (ISS-10, 15) -->
+                <div class="menu-wrap" sec:authorize="hasRole('ADMIN')" th:if="${bulkDownloadEnabled}">
+                    <button type="button" class="btn sm" data-menu-trigger aria-haspopup="true" aria-expanded="false">내보내기</button>
+                    <div class="menu" role="menu">
+                        <a role="menuitem" th:href="@{/admin/issues/export(formats='excel', board=${board.id}, place=${place}, status=${status}, category=${category}, from=${from}, to=${to})}">리스트 → Excel</a>
+                        <a role="menuitem" th:href="@{/admin/issues/export(formats='zip', board=${board.id}, place=${place}, status=${status}, category=${category}, from=${from}, to=${to})}">이미지 &amp; 문서 → Zip</a>
+                    </div>
+                </div>
             </form>
         </div>
 
         <section class="issue-list" aria-label="이슈 목록">
             <div th:if="${#lists.isEmpty(posts)}" class="card empty"><b>이슈가 없어요</b><span>조건을 바꾸거나 새 이슈를 올려 주세요</span></div>
-            <a th:each="p : ${posts}" th:href="@{|/board/post/${p.id}|}" class="card issue-card"
+            <div class="issue-card-wrap" th:each="p : ${posts}">
+            <a th:href="@{|/board/post/${p.id}|}" class="card issue-card"
                th:classappend="${p.issueStatus != null and p.issueStatus.name() == 'RESOLVED'} ? 'is-done' : 'is-open'">
                 <div class="ic-top">
                     <th:block th:if="${p.issueStatus != null}"><span th:replace="~{fragments/ui :: chip(${p.issueStatus.name()}, ${p.issueStatus.label})}"></span></th:block>
@@ -80,6 +96,8 @@
                 <span class="resolution-line" th:if="${p.resolution != null and !#strings.isEmpty(p.resolution)}">
                     <b>해결</b><th:block th:if="${p.resolvedBy != null}" th:text="| · ${p.resolvedBy.displayName}|"></th:block> · <span th:text="${#strings.abbreviate(p.resolution, 90)}">해결 방법</span></span>
             </a>
+            <button th:replace="~{fragments/ui :: copyLink(@{|/board/post/${p.id}|})}"></button>
+            </div>
         </section>
     </th:block>
 
