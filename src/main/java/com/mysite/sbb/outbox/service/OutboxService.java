@@ -10,6 +10,8 @@ import com.mysite.sbb.outbox.entity.OutboxEvent;
 import com.mysite.sbb.outbox.repository.OutboxEventRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,9 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class OutboxService {
+
+    // [REL-51] 재처리 경로는 별도 로거 이름으로 남긴다 (OPS-03)
+    public static final Logger REPROCESS_LOG = LoggerFactory.getLogger("com.mysite.sbb.reprocess");
 
     private final OutboxEventRepository outboxEventRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -79,6 +84,19 @@ public class OutboxService {
                 : outboxEventRepository.findTop100ByStatusOrderByIdDesc(status);
     }
 
+    // 종류까지 거르기 (알림, 채팅 전송 ...)
+    @Transactional(readOnly = true)
+    public List<OutboxEvent> getEvents(OutboxStatus status, String eventType) {
+        if (eventType == null || eventType.isBlank()) return getEvents(status);
+        return status == null ? outboxEventRepository.findTop100ByEventTypeOrderByIdDesc(eventType)
+                : outboxEventRepository.findTop100ByStatusAndEventTypeOrderByIdDesc(status, eventType);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getEventTypes() {
+        return outboxEventRepository.findEventTypes();
+    }
+
     @Transactional(readOnly = true)
     public long count(OutboxStatus status) {
         return outboxEventRepository.countByStatus(status);
@@ -89,6 +107,8 @@ public class OutboxService {
     public void reprocess(Long id) {
         OutboxEvent event = outboxEventRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("이벤트를 찾을 수 없어요."));
+        REPROCESS_LOG.info("수동 재처리 : 이벤트 #{} 종류={} 이전 상태={} 시도={} 오류={}", event.getId(), event.getEventType(),
+                event.getStatus(), event.getRetryCount(), event.getLastError());
         event.resetForReprocess(LocalDateTime.now());
         eventPublisher.publishEvent(new OutboxSavedEvent(event.getId()));
     }

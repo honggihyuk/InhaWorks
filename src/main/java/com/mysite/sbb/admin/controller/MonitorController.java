@@ -11,9 +11,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Optional;
 
 // 관리자 : 재처리 모니터
 //  - Outbox 이벤트 상태별 목록 (PENDING / PROCESSING / DONE / DEAD) + '재처리' (PENDING 으로 되돌리기)
@@ -29,7 +31,8 @@ public class MonitorController {
     private final BatchJobs batchJobs;
 
     @GetMapping
-    public String monitor(@RequestParam(value = "status", required = false) OutboxStatus status, Model model) {
+    public String monitor(@RequestParam(value = "status", required = false) OutboxStatus status,
+                          @RequestParam(value = "type", required = false) String type, Model model) {
         Map<OutboxStatus, Long> counts = new EnumMap<>(OutboxStatus.class);
         for (OutboxStatus s : OutboxStatus.values()) counts.put(s, outboxService.count(s));
         Map<JobStatus, Long> jobCounts = new EnumMap<>(JobStatus.class);
@@ -37,18 +40,23 @@ public class MonitorController {
         model.addAttribute("status", status);
         model.addAttribute("statuses", OutboxStatus.values());
         model.addAttribute("counts", counts);
-        model.addAttribute("events", outboxService.getEvents(status));
+        model.addAttribute("type", type == null || type.isBlank() ? null : type);
+        model.addAttribute("eventTypes", outboxService.getEventTypes());
+        model.addAttribute("events", outboxService.getEvents(status, type));
         model.addAttribute("jobCounts", jobCounts);
         model.addAttribute("jobs", jobExecutionService.getRecent());
         return "admin/monitor";
     }
 
     @PostMapping("/outbox/{id}/retry")
-    public String retry(@PathVariable("id") Long id, @RequestParam(value = "status", required = false) String status,
-                        RedirectAttributes ra) {
+    public String retry(@PathVariable("id") Long id, @RequestParam(value = "status", required = false) OutboxStatus status,
+                        @RequestParam(value = "type", required = false) String type, RedirectAttributes ra) {
         outboxService.reprocess(id);
         ra.addFlashAttribute("adminMessage", "이벤트 #" + id + " 을 다시 처리하도록 PENDING 으로 되돌렸어요.");
-        return "redirect:/admin/monitor" + (status == null || status.isBlank() ? "" : "?status=" + status);
+        return "redirect:" + UriComponentsBuilder.fromPath("/admin/monitor")
+                .queryParamIfPresent("status", Optional.ofNullable(status))
+                .queryParamIfPresent("type", Optional.ofNullable(type).filter(t -> !t.isBlank()))
+                .encode().build().toUriString();
     }
 
     // 스케줄러를 기다리지 않고 지금 PENDING 이벤트 처리

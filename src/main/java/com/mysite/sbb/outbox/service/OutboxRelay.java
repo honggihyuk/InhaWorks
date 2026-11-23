@@ -56,7 +56,7 @@ public class OutboxRelay {
         int released = outboxEventRepository.releaseStuck(OutboxStatus.PENDING, OutboxStatus.PROCESSING,
                 now.minusSeconds(stuckTimeoutSeconds));
         if (released > 0) {
-            log.warn("=======> 멈춘 Outbox 이벤트 {}건을 PENDING 으로 되살림", released);
+            OutboxService.REPROCESS_LOG.warn("멈춘 이벤트 {}건을 PENDING 으로 되살림 (기준 {}초)", released, stuckTimeoutSeconds);
         }
         List<OutboxEvent> due = outboxEventRepository.findTop100ByStatusAndNextRetryAtLessThanEqualOrderByIdAsc(OutboxStatus.PENDING, now);
         int done = 0;

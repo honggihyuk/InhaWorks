@@ -39,10 +39,15 @@
     <section class="card flush">
         <div class="card-head"><h2>Outbox 이벤트</h2>
             <div class="chips" aria-label="상태로 거르기">
-                <a class="filter-chip" th:href="@{/admin/monitor}" th:classappend="${status == null} ? 'active'">전체 (최근 100)</a>
-                <a class="filter-chip" th:each="s : ${statuses}" th:href="@{/admin/monitor(status=${s})}"
+                <a class="filter-chip" th:href="@{/admin/monitor(type=${type})}" th:classappend="${status == null} ? 'active'">전체 (최근 100)</a>
+                <a class="filter-chip" th:each="s : ${statuses}" th:href="@{/admin/monitor(status=${s}, type=${type})}"
                    th:classappend="${status == s} ? 'active'" th:text="${s.name()}">PENDING</a>
             </div>
+        </div>
+        <div class="chips" style="padding:10px 22px 0" aria-label="종류로 거르기">
+            <a class="filter-chip" th:href="@{/admin/monitor(status=${status})}" th:classappend="${type == null} ? 'active'">모든 종류</a>
+            <a class="filter-chip" th:each="t : ${eventTypes}" th:href="@{/admin/monitor(status=${status}, type=${t})}" th:classappend="${type == t} ? 'active'"
+               th:text="${t == 'CHAT_MESSAGE_CREATED' ? '채팅 전송' : (t == 'NOTIFICATION' ? '알림' : t)}">알림</a>
         </div>
         <div th:if="${#lists.isEmpty(events)}" class="empty-sm" style="padding:18px 22px">이벤트가 없어요.</div>
         <div class="table-box" th:unless="${#lists.isEmpty(events)}" style="margin-top:8px">
@@ -52,7 +57,8 @@
                 <tr th:each="ev : ${events}">
                     <td class="mono" data-label="#" th:text="${ev.id}">1</td>
                     <td class="cell-title">
-                        <b class="small" th:text="${ev.eventType}">NOTIFICATION</b>
+                        <b class="small" th:text="${ev.eventType == 'CHAT_MESSAGE_CREATED' ? '채팅 전송' : (ev.eventType == 'NOTIFICATION' ? '알림' : ev.eventType)}">알림</b>
+                        <span class="sub mono" th:text="${ev.eventType}">NOTIFICATION</span>
                         <span class="sub mono" th:text="|${ev.aggregateType} #${ev.aggregateId}|">TodoAssignment #3</span>
                         <span class="sub mono" th:if="${ev.idempotencyKey != null}" th:text="${ev.idempotencyKey}">key</span>
                     </td>
@@ -64,7 +70,7 @@
                     <td class="right">
                         <form th:unless="${ev.status.name() == 'DONE' or ev.status.name() == 'PROCESSING'}"
                               th:action="@{|/admin/monitor/outbox/${ev.id}/retry|}" method="post" class="inline">
-                            <input type="hidden" name="status" th:value="${status}">
+                            <input type="hidden" name="status" th:value="${status}"><input type="hidden" name="type" th:value="${type}">
                             <button type="submit" class="btn sm" th:classappend="${ev.status.name() == 'DEAD'} ? 'primary'"
                                     th:attr="data-confirm=|이벤트 #${ev.id} 을 재처리할까요?|"
                                     data-confirm-body="PENDING 으로 되돌려 다음 주기에 다시 처리해요. 알림이 한 번 더 갈 수 있어요." data-confirm-ok="재처리">재처리</button>

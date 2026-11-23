@@ -44,6 +44,13 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> 
 
     List<OutboxEvent> findTop100ByStatusOrderByIdDesc(OutboxStatus status);
 
+    List<OutboxEvent> findTop100ByEventTypeOrderByIdDesc(String eventType);
+
+    List<OutboxEvent> findTop100ByStatusAndEventTypeOrderByIdDesc(OutboxStatus status, String eventType);
+
+    @Query("select distinct e.eventType from OutboxEvent e order by e.eventType")
+    List<String> findEventTypes();
+
     // 재처리 모니터 : 오늘 처리 완료 수
     long countByStatusAndProcessedAtGreaterThanEqual(OutboxStatus status, LocalDateTime from);
 }
