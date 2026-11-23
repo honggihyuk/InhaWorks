@@ -47,6 +47,11 @@ public class MemberService {
         return memberRepository.findByActiveTrueOrderByNameAsc();
     }
 
+    // 소속·근무제까지 함께 (채팅 상대 고르기)
+    public List<Member> getActiveMembersWithOrg() {
+        return memberRepository.findActiveWithOrg();
+    }
+
     public List<Member> getMembers(List<Long> ids) {
         return (ids == null || ids.isEmpty()) ? List.of() : memberRepository.findAllById(ids);
     }

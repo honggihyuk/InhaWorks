@@ -4,6 +4,7 @@ import com.mysite.sbb.admin.service.AdminDashboardService;
 import com.mysite.sbb.attendance.service.AttendanceService;
 import com.mysite.sbb.batch.service.JobExecutionService;
 import com.mysite.sbb.board.service.BoardService;
+import com.mysite.sbb.chat.service.ChatRoomService;
 import com.mysite.sbb.member.entity.Member;
 import com.mysite.sbb.member.repository.MemberRepository;
 import com.mysite.sbb.outbox.constant.OutboxStatus;
@@ -39,6 +40,7 @@ public class LayoutModelAdvice {
     private final AttendanceService attendanceService;
     private final BoardService boardService;
     private final AdminDashboardService adminDashboardService;
+    private final ChatRoomService chatRoomService;
 
     @Value("${app.batch.generate-cron:0 5 0 * * *}")
     private String generateCron;
@@ -53,10 +55,15 @@ public class LayoutModelAdvice {
             return;
         }
         String uri = request.getRequestURI().substring(request.getContextPath().length());
+        // 채팅이 자주 부르는 데이터·조각 요청은 사이드바 값이 필요 없다
+        if (uri.matches("/chat/(unread|attachments/.*|rooms/list|rooms/\\d+/messages)") || uri.matches("/members/\\d+/card")) {
+            return;
+        }
         Member me = memberRepository.findByUsername(principal.getName()).orElse(null);
         if (me == null) {
             return;
         }
+        model.addAttribute("navChatUnread", chatRoomService.unreadTotal(me.getId()));
         model.addAttribute("navInbox", reportService.getInbox(me).size());
         model.addAttribute("navReviewWaiting", me.isAdmin() ? todoAssignmentService.getReviewQueue(me).size()
                 : todoAssignmentService.countReviewWaiting(me));

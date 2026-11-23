@@ -52,8 +52,8 @@ spring:
     encoding:
       charset: UTF-8        # 인코딩 설정
     multipart:
-      max-file-size: 10MB     # 파일 1개 최대 크기
-      max-request-size: 60MB  # 사진·서명·문서를 한 번에
+      max-file-size: 20MB     # 파일 1개 최대 크기 (채팅 첨부 20MB, 그 밖의 첨부는 FileStore 가 10MB 로 제한)
+      max-request-size: 210MB # 채팅 첨부 10개 × 20MB (그 밖의 화면은 UploadLimitFilter 가 60MB 로 제한)
 
 ####################################
 # InhaWorks 설정
@@ -96,6 +96,11 @@ app:
     catch-up-days: 7              # 최근 7일 중 빠진 날짜를 다시 생성
     catch-up-on-startup: true
     recovery-interval-ms: 600000  # 10분마다 누락·실패 배치 확인
+
+  # 사내 채팅
+  chat:
+    max-file-mb: 20               # 첨부 파일 하나 최대 크기
+    max-files: 10                 # 한 번에 보낼 수 있는 파일 수
 
   # [보안] 가벼운 보안 설정
   security:

@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,7 @@ import java.util.UUID;
 //  3) 근무 정책 : 없으면 기본 정책 2개 (예시 데이터를 만들면 직원은 매장 스케줄 근무, 관리자는 사무실 고정 근무)
 @Slf4j
 @Component
+@Order(0)      // 채팅 채널 동기화(ChatStartupSync)보다 먼저
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- 대화방 목록 : 처음 화면과 실시간 갱신(/chat/rooms/list)이 같은 조각을 쓴다 -->
+<div th:fragment="roomList" class="chat-rooms" data-room-list>
+    <div th:if="${#lists.isEmpty(rooms)}" class="empty-sm" style="padding:18px">대화방이 없어요.</div>
+    <div class="chat-room-row" th:each="r : ${rooms}" th:classappend="${r.id == activeId} ? 'active'"
+         th:attr="data-room-id=${r.id},data-muted=${r.muted},data-leavable=${r.leavable}">
+        <a class="chat-room-link" th:href="@{|/chat/rooms/${r.id}|}" th:attr="aria-current=${r.id == activeId} ? 'true'">
+            <span class="chat-faces" aria-hidden="true">
+                <th:block th:each="f : ${r.faces}"><span th:replace="~{fragments/ui :: avatar(${f}, 'sm')}"></span></th:block>
+                <span class="avatar sm" th:if="${#lists.isEmpty(r.faces)}">#</span>
+            </span>
+            <span class="chat-room-main">
+                <span class="chat-room-top">
+                    <b class="chat-room-name" th:text="${r.name}">인하점</b>
+                    <span class="chat-count tnum" th:if="${r.type != 'DIRECT'}" th:text="${r.memberCount}">12</span>
+                    <span class="chat-bell-off" th:if="${r.muted}" title="알림 꺼짐" aria-label="알림 꺼짐">🔕</span>
+                    <span class="chat-time tnum" th:if="${r.lastMessageAt != null}"
+                          th:text="${#temporals.format(r.lastMessageAt, r.lastMessageAt.toLocalDate() == T(java.time.LocalDate).now() ? 'HH:mm' : 'M.d')}">10:20</span>
+                </span>
+                <span class="chat-room-bottom">
+                    <span class="chat-chip" th:text="${r.inquiryLabel != null ? r.inquiryLabel : r.typeLabel}">매장 채널</span>
+                    <span class="chat-last" th:text="${r.lastMessage != null ? r.lastMessage : '아직 메시지가 없어요'}">마지막 메시지</span>
+                    <span class="badge" th:if="${r.unread > 0}" th:text="${r.unread > 99 ? '99+' : r.unread}">3</span>
+                </span>
+            </span>
+        </a>
+        <div class="menu-wrap">
+            <button type="button" class="icon-btn chat-row-menu" data-menu-trigger aria-haspopup="true" aria-expanded="false"
+                    th:aria-label="|${r.name} 메뉴|"><th:block th:replace="~{fragments/ui :: icon('more')}"/></button>
+            <div class="menu" role="menu">
+                <button type="button" role="menuitem" data-room-mute th:text="${r.muted} ? '알림 켜기' : '알림 끄기'">알림 끄기</button>
+                <button type="button" role="menuitem" class="danger" data-room-leave th:if="${r.leavable}">나가기</button>
+                <button type="button" role="menuitem" aria-disabled="true" th:unless="${r.leavable}" data-why="매장·팀·공지 채널은 나갈 수 없어요.">나갈 수 없는 채널</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 프로필 카드 (GET /members/{id}/card) -->
+<div th:fragment="memberCard" class="member-card" th:with="m=${card.member}">
+    <div class="member-card-head">
+        <span th:replace="~{fragments/ui :: avatar(${m}, 'lg')}"></span>
+        <div>
+            <h3 id="iw-card-title"><th:block th:text="${m.displayName}">홍길동</th:block>
+                <span th:replace="~{fragments/ui :: policyChip(${m})}"></span></h3>
+            <p class="muted" th:text="${#strings.isEmpty(m.subtitle) ? '소속 없음' : m.subtitle}">영업팀 · 인하점 · 사원</p>
+            <span class="chip" th:classappend="${card.workStatusCss}" th:text="${card.workStatus}">근무 중</span>
+        </div>
+    </div>
+    <form th:if="${!card.self and m.active}" th:action="@{|/chat/direct/${m.id}|}" method="post" data-once>
+        <button type="submit" class="btn primary block">채팅하기</button>
+    </form>
+</div>
+</html>

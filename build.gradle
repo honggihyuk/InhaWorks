@@ -34,6 +34,11 @@ dependencies {
     // 추가(엑셀) - 보고서 제출 내역 엑셀 다운로드
     implementation 'org.apache.poi:poi-ooxml:5.4.1'
 
+    // 추가(채팅) - 실시간 메시지 STOMP WebSocket (/ws)
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    // 추가(채팅 보안) - WebSocket 세션 인증, STOMP CSRF, 구독 권한
+    implementation 'org.springframework.security:spring-security-messaging'
+
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     runtimeOnly 'com.mysql:mysql-connector-j:8.4.0'
