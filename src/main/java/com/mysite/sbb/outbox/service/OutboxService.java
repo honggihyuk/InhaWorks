@@ -14,6 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +35,8 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class OutboxService {
+
+    public static final int MONITOR_PAGE_SIZE = 20;
 
     // [REL-51] 재처리 경로는 별도 로거 이름으로 남긴다 (OPS-03)
     public static final Logger REPROCESS_LOG = LoggerFactory.getLogger("com.mysite.sbb.reprocess");
@@ -78,18 +84,23 @@ public class OutboxService {
 
     // ---------- 재처리 모니터 ----------
 
+    // 상태·종류로 거른 이벤트 한 페이지 (최신순). 범위를 벗어난 번호는 마지막 페이지로
     @Transactional(readOnly = true)
-    public List<OutboxEvent> getEvents(OutboxStatus status) {
-        return status == null ? outboxEventRepository.findTop100ByOrderByIdDesc()
-                : outboxEventRepository.findTop100ByStatusOrderByIdDesc(status);
+    public Page<OutboxEvent> getEventPage(OutboxStatus status, String eventType, int page) {
+        Page<OutboxEvent> result = findEvents(status, eventType, Math.max(page, 0));
+        if (result.getContent().isEmpty() && result.getTotalPages() > 0 && result.getNumber() >= result.getTotalPages()) {
+            return findEvents(status, eventType, result.getTotalPages() - 1);
+        }
+        return result;
     }
 
-    // 종류까지 거르기 (알림, 채팅 전송 ...)
-    @Transactional(readOnly = true)
-    public List<OutboxEvent> getEvents(OutboxStatus status, String eventType) {
-        if (eventType == null || eventType.isBlank()) return getEvents(status);
-        return status == null ? outboxEventRepository.findTop100ByEventTypeOrderByIdDesc(eventType)
-                : outboxEventRepository.findTop100ByStatusAndEventTypeOrderByIdDesc(status, eventType);
+    private Page<OutboxEvent> findEvents(OutboxStatus status, String eventType, int page) {
+        Pageable pageable = PageRequest.of(page, MONITOR_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"));
+        boolean typed = eventType != null && !eventType.isBlank();
+        if (status != null && typed) return outboxEventRepository.findByStatusAndEventType(status, eventType, pageable);
+        if (status != null) return outboxEventRepository.findByStatus(status, pageable);
+        if (typed) return outboxEventRepository.findByEventType(eventType, pageable);
+        return outboxEventRepository.findAll(pageable);
     }
 
     @Transactional(readOnly = true)

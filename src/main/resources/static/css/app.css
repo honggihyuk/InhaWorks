@@ -1047,3 +1047,14 @@ table.att-cal td { text-align: center; padding: 0; }
     .chat-msg-body { max-width: 84%; }
     .chat-row-menu { opacity: 1; }
 }
+
+
+/* 페이지 이동 (재처리 모니터) */
+.monitor-section { scroll-margin-top: calc(var(--topbar-h) + 12px); }
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.pager-item { min-width: 36px; height: 36px; padding: 0 8px; display: inline-grid; place-items: center; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.pager-item:hover { background: var(--lb); color: var(--text) !important; }
+.pager-item:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.pager-item.active { background: var(--blue); border-color: var(--blue); color: #fff !important; font-weight: 600; }
+.pager-item.disabled { opacity: .4; pointer-events: none; }
+.pager-info { margin-left: 8px; color: var(--faint); font-size: 12px; }

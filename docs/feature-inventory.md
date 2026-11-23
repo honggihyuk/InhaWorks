@@ -252,10 +252,10 @@
 
 #### A16 재처리 모니터 `/admin/monitor`
 - Outbox 섹션 : **지금 처리 (PENDING)** `POST /admin/monitor/outbox/poll`.
-- 상태 카드(PENDING/PROCESSING/DONE/DEAD 건수, 클릭 → `?status=`; DEAD>0 빨간 숫자). 필터 칩 : 전체(최근 100) + 상태별.
+- 상태 카드(PENDING/PROCESSING/DONE/DEAD 건수, 클릭 → `?status=`; DEAD>0 빨간 숫자). 필터 칩 : 전체 + 상태별 + 종류별. 표는 20건씩 최신순 페이지 (`outboxPage`, 0부터).
 - 이벤트 표 열 : # · 종류/출처(eventType, `aggregateType #aggregateId`, idempotencyKey) · 상태 배지 · 재시도(`retryCount / maxRetries`) · 다음 시도(PENDING 만) · 마지막 오류 · 만든 시각 · **재처리** `POST /admin/monitor/outbox/{id}/retry` hidden `status`(현재 필터 유지) — DONE/PROCESSING 이 아닐 때만.
 - 배치 섹션 : **누락·실패 배치 지금 복구** `POST /admin/monitor/job/catch-up`. JobStatus 별 건수 칩.
-- 배치 표 열(최근 50) : 배치(jobName) · 대상(jobKey 날짜) · 상태 · 시도(attempts) · 시작·끝 · 결과/오류 · **재실행** `POST /admin/monitor/job/{id}/rerun` (`data-confirm`).
+- 배치 표(20건씩 최신순 페이지, `jobPage`, 이벤트 페이지와 독립. 재처리·재실행 뒤에도 필터와 페이지 유지) 열 : 배치(jobName) · 대상(jobKey 날짜) · 상태 · 시도(attempts) · 시작·끝 · 결과/오류 · **재실행** `POST /admin/monitor/job/{id}/rerun` (`data-confirm`).
 
 ### 직원
 
@@ -673,7 +673,7 @@ DB 변경 (ddl-auto update 로 자동 추가, 기본값 false) : `todo_task.dele
 | `GET /admin/chat` · `POST /admin/chat/notice` | 채널 현황·통계, 전체 공지 |
 | `GET·POST /admin/chat/topics`, `POST /admin/chat/topics/{id}/toggle` | 문의 주제·담당자 |
 | `GET /admin/chat/inquiries?topic=&status=`, `POST .../{id}/open`, `.../{id}/close` | 문의함 |
-| `GET /admin/monitor?status=&type=` | 재처리 모니터 : 이벤트 종류로 거르기 |
+| `GET /admin/monitor?status=&type=&outboxPage=&jobPage=` | 재처리 모니터 : 상태·종류 필터, 이벤트·배치 기록 각각 페이지 이동 |
 
 - 사이드바 **채팅**(안 읽은 수, 알림 끈 방 제외), 관리자 **채팅 관리**. 다른 화면에서는 토스트.
 - 근무제 칩 : `fragments/ui :: policyChip(m)` (직원 목록, 프로필 카드, 채팅, 스케줄).

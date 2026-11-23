@@ -6,6 +6,9 @@ import com.mysite.sbb.batch.repository.JobExecutionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -25,6 +28,7 @@ public class JobExecutionService {
 
     // RUNNING 이 이 시간보다 오래되면 (서버가 도중에 죽은 경우) 다시 시작해도 된다
     private static final long STALE_RUNNING_MINUTES = 30;
+    private static final int MONITOR_PAGE_SIZE = 20;
 
     private final JobExecutionRepository jobExecutionRepository;
     private final TransactionTemplate tx;
@@ -92,8 +96,17 @@ public class JobExecutionService {
 
     // ---------- 재처리 모니터 ----------
 
-    public List<JobExecution> getRecent() {
-        return jobExecutionRepository.findTop50ByOrderByIdDesc();
+    // 실행 기록 한 페이지 (최신순). 범위를 벗어난 번호는 마지막 페이지로
+    public Page<JobExecution> getPage(int page) {
+        Page<JobExecution> result = jobExecutionRepository.findAll(pageRequest(Math.max(page, 0)));
+        if (result.getContent().isEmpty() && result.getTotalPages() > 0 && result.getNumber() >= result.getTotalPages()) {
+            return jobExecutionRepository.findAll(pageRequest(result.getTotalPages() - 1));
+        }
+        return result;
+    }
+
+    private static PageRequest pageRequest(int page) {
+        return PageRequest.of(page, MONITOR_PAGE_SIZE, Sort.by(Sort.Direction.DESC, "id"));
     }
 
     public List<JobExecution> getFailed() {

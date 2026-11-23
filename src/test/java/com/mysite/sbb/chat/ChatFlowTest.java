@@ -365,7 +365,7 @@ class ChatFlowTest {
     }
 
     private OutboxEvent latestChatEvent() {
-        return outboxService.getEvents(null, ChatMessageOutboxHandler.TYPE).get(0);
+        return outboxService.getEventPage(null, ChatMessageOutboxHandler.TYPE, 0).getContent().get(0);
     }
 
     private Member createMember() {

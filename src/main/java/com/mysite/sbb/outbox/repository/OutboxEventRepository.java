@@ -2,6 +2,8 @@ package com.mysite.sbb.outbox.repository;
 
 import com.mysite.sbb.outbox.constant.OutboxStatus;
 import com.mysite.sbb.outbox.entity.OutboxEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -39,14 +41,12 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, Long> 
 
     long countByStatus(OutboxStatus status);
 
-    // 재처리 모니터
-    List<OutboxEvent> findTop100ByOrderByIdDesc();
+    // 재처리 모니터 : 페이지 조회
+    Page<OutboxEvent> findByStatus(OutboxStatus status, Pageable pageable);
 
-    List<OutboxEvent> findTop100ByStatusOrderByIdDesc(OutboxStatus status);
+    Page<OutboxEvent> findByEventType(String eventType, Pageable pageable);
 
-    List<OutboxEvent> findTop100ByEventTypeOrderByIdDesc(String eventType);
-
-    List<OutboxEvent> findTop100ByStatusAndEventTypeOrderByIdDesc(OutboxStatus status, String eventType);
+    Page<OutboxEvent> findByStatusAndEventType(OutboxStatus status, String eventType, Pageable pageable);
 
     @Query("select distinct e.eventType from OutboxEvent e order by e.eventType")
     List<String> findEventTypes();
